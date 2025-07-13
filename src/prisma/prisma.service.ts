@@ -1,0 +1,94 @@
+import { Injectable, OnModuleInit, OnModuleDestroy } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
+import { Prisma, PrismaClient } from '@prisma/client';
+import { Interval } from '@nestjs/schedule';
+import { StatsD } from 'hot-shots';
+import { Logger } from 'src/common/services/logger';
+import { Environment } from 'src/common/enums';
+
+const configService = new ConfigService();
+const intervalTime = parseFloat(
+  configService.get<string>('PRISMA_STATS_PERIOD', '10000'),
+);
+
+// recursive function looping deeply throug an object to find Decimals
+const transformDecimalsToNumbers = (obj: any): void => {
+  if (!obj) {
+    return;
+  }
+
+  for (const key of Object.keys(obj)) {
+    if (Prisma.Decimal.isDecimal(obj[key])) {
+      obj[key] = obj[key].toNumber();
+    } else if (typeof obj[key] === 'object') {
+      transformDecimalsToNumbers(obj[key]);
+    }
+  }
+};
+
+@Injectable()
+export class PrismaService
+  extends PrismaClient<Prisma.PrismaClientOptions, 'query'>
+  implements OnModuleInit, OnModuleDestroy
+{
+  private readonly logger = new Logger(PrismaService.name);
+  private previousHistograms: Prisma.Metric<Prisma.MetricHistogram>[] | null =
+    null;
+  private readonly metrics = new StatsD({
+    host: process.env.STATSD_HOST || 'statsd.disco',
+    mock: process.env.NODE_ENV !== 'production',
+  });
+
+  constructor() {
+    super({ log: [{ emit: 'event', level: 'query' }] });
+
+    this.logger.log(`Prisma v${Prisma.prismaVersion.client}`);
+
+    this.$on('query', (e) =>
+      this.logger.debug(`${e.query.replace(/\r?\n/g, '\t')} ${e.params}`),
+    );
+    this.$use(async (params, next) => {
+      // const result = await this.metrics.asyncTimer(next, `prisma.sql.${params.action}.${params.model || "no_model"}`)(params);
+      const start = process.hrtime.bigint();
+      const result = await next(params);
+      const end = process.hrtime.bigint();
+      this.metrics.timing(
+        `prisma.sql.${params.action}.${params.model || 'no_model'}`,
+        (end - start) as unknown as number,
+      );
+
+      transformDecimalsToNumbers(result);
+
+      return result;
+    });
+  }
+
+  async onModuleInit(): Promise<void> {
+    await this.$connect();
+  }
+
+  async onModuleDestroy(): Promise<void> {
+    await this.$disconnect();
+  }
+
+  @Interval(intervalTime)
+  async metricsSender(): Promise<void> {
+    if (process.env.NODE_ENV != Environment.production) {
+      return;
+    }
+
+    const metrics = await this.$metrics.json();
+
+    metrics.counters.forEach((counter: { key: string; value: number }) => {
+      this.metrics.gauge(`prisma.${counter.key}`, counter.value, (...res) => {
+        res;
+      });
+    });
+
+    metrics.gauges.forEach((counter: { key: string; value: number }) => {
+      this.metrics.gauge(`prisma.${counter.key}`, counter.value, (...res) => {
+        res;
+      });
+    });
+  }
+}
