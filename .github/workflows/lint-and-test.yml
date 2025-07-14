@@ -30,7 +30,7 @@ jobs:
         ports:
           - 6379:6379
         options: >-
-          --health-cmd="redis-cli ping"
+          --health-cmd="redis-cli ping || exit 1"
           --health-interval=10s
           --health-timeout=5s
           --health-retries=5
@@ -47,13 +47,18 @@ jobs:
     - name: Install dependencies
       run: npm install
 
+    - name: Install Redis CLI
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y redis-tools
+
     - name: Wait for services to be ready
       run: |
         until pg_isready -h localhost -p 5432; do
           echo "Waiting for Postgres...";
           sleep 2;
         done
-        until redis-cli -h localhost ping; do
+        until redis-cli ping; do
           echo "Waiting for Redis...";
           sleep 2;
         done
