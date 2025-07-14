@@ -12,11 +12,7 @@ import { ConsoleLogger } from '@nestjs/common';
 // };
 
 export class Logger extends ConsoleLogger {
-  private logMessage(
-    level: string,
-    message: unknown,
-    ...optionalParams: unknown[]
-  ): void {
+  private logMessage(level: string, message: unknown, ...optionalParams: unknown[]): void {
     if (process.env.NODE_ENV == Environment.test && !process.env.TEST_LOGS) {
       return;
     }

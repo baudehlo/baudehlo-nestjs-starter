@@ -1,8 +1,5 @@
 import { NestFactory } from '@nestjs/core';
-import {
-  FastifyAdapter,
-  NestFastifyApplication,
-} from '@nestjs/platform-fastify';
+import { FastifyAdapter, NestFastifyApplication } from '@nestjs/platform-fastify';
 import fastify, { FastifyInstance, FastifyServerOptions } from 'fastify';
 import fastifyCookie from '@fastify/cookie';
 import fastifySession from '@fastify/session';
@@ -12,8 +9,11 @@ import helmet from 'helmet';
 import { BadRequestException } from '@nestjs/common';
 import { Environment } from './common/enums';
 import { Logger } from './common/services/logger';
-import { createClient } from 'redis';
 import RedisStore from 'fastify-session-redis-store';
+import { RedisService } from './common/services/redis';
+import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
+import bytes from 'bytes';
+// import { version } from '../package.json';
 
 declare module 'fastify' {
   interface Session {
@@ -32,17 +32,12 @@ async function bootstrap() {
     };
     const instance: FastifyInstance = fastify(serverOptions);
 
-    const app = await NestFactory.create<NestFastifyApplication>(
-      AppModule,
-      new FastifyAdapter(instance),
-    );
+    const app = await NestFactory.create<NestFastifyApplication>(AppModule, new FastifyAdapter(instance));
+    await app.init();
 
-    const redisClient = createClient({ url: process.env.REDIS_URL });
-    redisClient.on('error', (err) => {
-      const logger = new Logger('RedisClient');
-      logger.error('Redis Client Error', err);
-    });
-    await redisClient.connect();
+    const redisService = await app.resolve(RedisService);
+
+    const redisClient = await redisService.getClient();
 
     // Initialize store.
     const redisStore = new RedisStore({
@@ -83,6 +78,20 @@ async function bootstrap() {
     app.use(doubleCsrfProtection);
 
     app.enableShutdownHooks();
+
+    const payloadLimit = bytes.parse(process.env.PAYLOAD_LIMIT || '10mb') || undefined;
+    app.useBodyParser('json', { bodyLimit: payloadLimit });
+
+    const config = new DocumentBuilder()
+      .setTitle('Matt Template API')
+      .setDescription('The Matt Template API description')
+      // .setVersion(version)
+      .addBearerAuth()
+      .build();
+
+    const document = SwaggerModule.createDocument(app, config);
+    SwaggerModule.setup('api', app, document);
+
     await app.listen(process.env.PORT ?? 3000);
     console.log(`Application is running on: ${await app.getUrl()}`);
   } catch (error) {
