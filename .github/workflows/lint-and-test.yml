@@ -1,0 +1,65 @@
+name: Lint, Test, and Setup Services
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+
+jobs:
+  lint-and-test:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:14
+        ports:
+          - 5432:5432
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: testdb
+        options: >-
+          --health-cmd="pg_isready -U postgres"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
+
+      redis:
+        image: redis:7
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd="redis-cli ping"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+
+    - name: Set up Node.js
+      uses: actions/setup-node@v3
+      with:
+        node-version: 18
+
+    - name: Install dependencies
+      run: npm install
+
+    - name: Wait for services to be ready
+      run: |
+        until pg_isready -h localhost -p 5432; do
+          echo "Waiting for Postgres...";
+          sleep 2;
+        done
+        until redis-cli -h localhost ping; do
+          echo "Waiting for Redis...";
+          sleep 2;
+        done
+
+    - name: Run lint
+      run: npm run lint
+
+    - name: Run tests
+      run: npm test
