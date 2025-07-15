@@ -66,10 +66,12 @@ jobs:
     - name: Run lint
       run: npm run lint
 
+    - name: Disk usage
+      run: df -h
+
     - name: Run tests
       env:
         DATABASE_URL: postgres://postgres:postgres@localhost:5432/testdb
         REDIS_URL: redis://localhost:6379
         SESSION_SECRET: Matt is Jobber's biggest fan and he will die on that hill
-        REDIS_MEMORY_THRESHOLD: 12345
       run: npm test
