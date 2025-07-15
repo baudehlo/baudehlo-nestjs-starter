@@ -5,9 +5,11 @@
 // Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
 
 generator client {
-  provider        = "prisma-client-js"
-  previewFeatures = ["postgresqlExtensions", "metrics", "fullTextSearchPostgres"]
-  output          = "../generated/prisma"
+  provider               = "prisma-client-js"
+  previewFeatures        = ["postgresqlExtensions", "metrics", "fullTextSearchPostgres"]
+  output                 = "../generated/prisma"
+  runtime                = "nodejs"
+  generatedFileExtension = "ts"
 }
 
 datasource db {

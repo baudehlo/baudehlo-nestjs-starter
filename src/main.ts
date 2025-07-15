@@ -1,10 +1,12 @@
+import * as sourceMapSupport from 'source-map-support';
+sourceMapSupport.install();
+
 import { NestFactory } from '@nestjs/core';
 import { FastifyAdapter, NestFastifyApplication } from '@nestjs/platform-fastify';
 import fastify, { FastifyInstance, FastifyServerOptions } from 'fastify';
 import fastifyCookie from '@fastify/cookie';
 import fastifySession from '@fastify/session';
 import { AppModule } from './app.module';
-import { doubleCsrf } from 'csrf-csrf';
 import helmet from 'helmet';
 import { BadRequestException } from '@nestjs/common';
 import { Environment } from './common/enums';
@@ -13,7 +15,7 @@ import RedisStore from 'fastify-session-redis-store';
 import { RedisService } from './common/services/redis';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import bytes from 'bytes';
-// import { version } from '../package.json';
+import { readFile } from 'node:fs/promises';
 
 declare module 'fastify' {
   interface Session {
@@ -27,6 +29,8 @@ const isProduction = process.env.NODE_ENV === Environment.production;
 
 async function bootstrap() {
   try {
+    const { version } = JSON.parse(await readFile('package.json', 'utf-8')) as { version: string };
+
     const serverOptions: FastifyServerOptions = {
       logger: true,
     };
@@ -69,14 +73,6 @@ async function bootstrap() {
 
     app.use(helmet());
 
-    const {
-      doubleCsrfProtection, // This is the default CSRF protection middleware.
-    } = doubleCsrf({
-      getSessionIdentifier: (req): string => req.session.id,
-      getSecret: (req) => req.session.csrfSecret ?? '',
-    });
-    app.use(doubleCsrfProtection);
-
     app.enableShutdownHooks();
 
     const payloadLimit = bytes.parse(process.env.PAYLOAD_LIMIT || '10mb') || undefined;
@@ -85,7 +81,7 @@ async function bootstrap() {
     const config = new DocumentBuilder()
       .setTitle('Matt Template API')
       .setDescription('The Matt Template API description')
-      // .setVersion(version)
+      .setVersion(version)
       .addBearerAuth()
       .build();
 

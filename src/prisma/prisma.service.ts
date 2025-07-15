@@ -11,7 +11,7 @@ const configService = new ConfigService();
 const intervalTime = parseFloat(configService.get<string>('PRISMA_STATS_PERIOD', '10000'));
 
 // recursive function looping deeply throug an object to find Decimals
-const transformDecimalsToNumbers = (obj: any): void => {
+const transformDecimalsToNumbers = (obj: object): void => {
   if (!obj) {
     return;
   }
@@ -20,7 +20,7 @@ const transformDecimalsToNumbers = (obj: any): void => {
     if (Decimal.isDecimal(obj[key])) {
       obj[key] = obj[key].toNumber();
     } else if (typeof obj[key] === 'object') {
-      transformDecimalsToNumbers(obj[key]);
+      transformDecimalsToNumbers(obj[key] as object);
     }
   }
 };
@@ -35,14 +35,16 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
 
     this.logger.log(`Prisma v${Prisma.prismaVersion.client}`);
 
-    this.$use(async (params, next) => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    this.$use(async (params, next): Promise<any> => {
       // const result = await this.metrics.asyncTimer(next, `prisma.sql.${params.action}.${params.model || "no_model"}`)(params);
       const start = process.hrtime.bigint();
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
       const result = await next(params);
       const end = process.hrtime.bigint();
       this.metrics.timing(`prisma.sql.${params.action}.${params.model || 'no_model'}`, (end - start) as unknown as number);
 
-      transformDecimalsToNumbers(result);
+      transformDecimalsToNumbers(result as object);
 
       return result;
     });

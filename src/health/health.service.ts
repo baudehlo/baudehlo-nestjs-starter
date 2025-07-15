@@ -17,8 +17,8 @@ export class HealthService {
   ) {}
 
   async checkHealth(): Promise<HealthCheckResult> {
-    const redisMemoryThreshold = this.configService.get<number>('REDIS_MEMORY_THRESHOLD_BYTES', 1000000000, { infer: true }); // Default to 1GB if not set
-    const diskThreshold = this.configService.get<number>('DISK_THRESHOLD_PERCENT', 0.75, { infer: true }); // Default to 75% if not set
+    const redisMemoryThreshold = this.configService.get<number>('REDIS_MEMORY_THRESHOLD_BYTES', 1000000000, { infer: true }) as number; // Default to 1GB if not set
+    const diskThreshold = this.configService.get<number>('DISK_THRESHOLD_PERCENT', 0.75, { infer: true }) as number; // Default to 75% if not set
     return this.health.check([
       () => this.disk.checkStorage('storage', { path: '/', thresholdPercent: diskThreshold }),
       () => this.prismaHealth.pingCheck('prisma', this.prisma),

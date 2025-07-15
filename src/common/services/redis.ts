@@ -18,7 +18,7 @@ declare module 'redlock' {
 export class RedisMock {
   // eslint-disable-next-line @typescript-eslint/require-await
   async get(key: string): Promise<string | null> {
-    return store[key] ?? null;
+    return store[key] !== undefined ? (store[key] as string) : null;
   }
 
   // eslint-disable-next-line @typescript-eslint/require-await
@@ -46,7 +46,7 @@ export class RedisMock {
 
   // eslint-disable-next-line @typescript-eslint/no-unused-vars, @typescript-eslint/require-await
   async getex(key: string, ..._ignoreArgs): Promise<string | null> {
-    return store[key] ?? null;
+    return store[key] !== undefined ? (store[key] as string) : null;
   }
 
   async quit(): Promise<void> {
