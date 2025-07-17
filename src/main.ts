@@ -6,7 +6,7 @@ import { FastifyAdapter, NestFastifyApplication } from '@nestjs/platform-fastify
 import fastify, { FastifyInstance, FastifyServerOptions } from 'fastify';
 import fastifyCookie from '@fastify/cookie';
 import fastifySession from '@fastify/session';
-import { AppModule } from './app.module';
+import { createAppModule } from './app.module';
 import helmet from 'helmet';
 import { BadRequestException } from '@nestjs/common';
 import { Environment } from './common/enums';
@@ -36,7 +36,8 @@ async function bootstrap() {
     };
     const instance: FastifyInstance = fastify(serverOptions);
 
-    const app = await NestFactory.create<NestFastifyApplication>(AppModule, new FastifyAdapter(instance));
+    const appModule = await createAppModule();
+    const app = await NestFactory.create<NestFastifyApplication>(appModule, new FastifyAdapter(instance));
     await app.init();
 
     const redisService = await app.resolve(RedisService);

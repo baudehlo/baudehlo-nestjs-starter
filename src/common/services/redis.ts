@@ -215,7 +215,6 @@ export class RedisHealthIndicator {
         if (options.memoryThreshold) {
           const info = await client.info('memory');
           const usedMemory = parseInt(info.match(/used_memory:(\d+)/)?.[1] || '0', 10);
-          console.log(`Used memory: ${usedMemory} bytes vs threshold: ${options.memoryThreshold} bytes`);
           if (usedMemory > options.memoryThreshold) {
             throw new Error(`Memory usage is too high: ${usedMemory} bytes, threshold is ${options.memoryThreshold} bytes`);
           }
