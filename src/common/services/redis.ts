@@ -65,6 +65,18 @@ export class RedisMock {
     }
     return '';
   }
+
+  // eslint-disable-next-line @typescript-eslint/require-await
+  async cluster(command: string): Promise<string> {
+    if (command === 'INFO') {
+      return 'cluster_state:ok\n';
+    }
+    return '';
+  }
+
+  async disconnect(): Promise<void> {
+    // do nothing
+  }
 }
 
 export class RedlockMock {
@@ -220,10 +232,10 @@ export class RedisHealthIndicator {
           }
         }
       } else {
-        // const clusterInfo = await client.cluster('INFO');
-        // if (typeof clusterInfo === 'string') {
-        //   if (!clusterInfo.includes('cluster_state:ok')) throw new Error(FAILED_CLUSTER_STATE);
-        // } else throw new Error(CANNOT_BE_READ);
+        const clusterInfo = await client.cluster('INFO');
+        if (typeof clusterInfo === 'string') {
+          if (!clusterInfo.includes('cluster_state:ok')) throw new Error(`INFO CLUSTER is not on OK state.`);
+        } else throw new Error(`INFO CLUSTER is null or can't be read.`);
       }
 
       return indicator.up();
@@ -232,5 +244,14 @@ export class RedisHealthIndicator {
       this.logger.error(`Redis health check failed for ${key}: ${message}`);
       return indicator.down({ message });
     }
+  }
+}
+
+@Injectable()
+export class RedisManagerService implements OnModuleDestroy {
+  constructor(private readonly redisService: RedisService<RedisClientT>) {}
+
+  async onModuleDestroy(): Promise<void> {
+    await this.redisService.onModuleDestroy();
   }
 }

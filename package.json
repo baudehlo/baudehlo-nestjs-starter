@@ -52,7 +52,8 @@
     "redis": "^5.6.0",
     "redlock": "^5.0.0-beta.2",
     "reflect-metadata": "^0.2.2",
-    "rxjs": "^7.8.1"
+    "rxjs": "^7.8.1",
+    "wtfnode": "^0.10.0"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3.2.0",
@@ -67,6 +68,7 @@
     "@types/node": "^22.10.7",
     "@types/source-map-support": "^0.5.10",
     "@types/supertest": "^6.0.2",
+    "@types/wtfnode": "^0.7.3",
     "eslint": "^9.18.0",
     "eslint-config-prettier": "^10.0.1",
     "eslint-plugin-prettier": "^5.2.2",
@@ -100,7 +102,7 @@
     "rootDir": ".",
     "testRegex": ".*\\.spec\\.ts$",
     "transform": {
-      "^.+\\.(t|j)s$": "ts-jest"
+      "^.+\\.ts$": "ts-jest"
     },
     "collectCoverageFrom": [
       "**/*.(t|j)s"

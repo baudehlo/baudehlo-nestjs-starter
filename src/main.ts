@@ -1,5 +1,6 @@
 import * as sourceMapSupport from 'source-map-support';
 sourceMapSupport.install();
+import 'dotenv/config';
 
 import { NestFactory } from '@nestjs/core';
 import { FastifyAdapter, NestFastifyApplication } from '@nestjs/platform-fastify';
@@ -29,9 +30,11 @@ const isProduction = process.env.NODE_ENV === Environment.production;
 
 async function bootstrap() {
   try {
+    const logger = new Logger('Bootstrap');
     const { version } = JSON.parse(await readFile('package.json', 'utf-8')) as { version: string };
 
     const serverOptions: FastifyServerOptions = {
+      trustProxy: true,
       logger: true,
     };
     const instance: FastifyInstance = fastify(serverOptions);
@@ -90,7 +93,7 @@ async function bootstrap() {
     SwaggerModule.setup('api', app, document);
 
     await app.listen(process.env.PORT ?? 3000);
-    console.log(`Application is running on: ${await app.getUrl()}`);
+    logger.log(`Application is running on: ${await app.getUrl()}`);
   } catch (error) {
     const logger = new Logger('Bootstrap');
     logger.error('Error during application bootstrap', error);

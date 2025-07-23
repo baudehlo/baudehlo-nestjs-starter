@@ -6,13 +6,19 @@ import { PrismaModule } from './prisma/prisma.module';
 import { HotShotsModule } from 'nestjs-hot-shots';
 import { ThrottlerModule, seconds } from '@nestjs/throttler';
 import { ThrottlerStorageRedisService } from '@nest-lab/throttler-storage-redis';
-import { Cluster, RedisService } from './common/services/redis';
+import { Cluster, RedisManagerService, RedisService } from './common/services/redis';
 import Redis from 'ioredis';
+// import { Logger } from './common/services/logger';
 
 // app.module.ts
 export async function createAppModule(): Promise<DynamicModule> {
+  // const logger = new Logger('AppModule');
   const redisService = new RedisService();
   const redisClient = (await redisService.getClient()) as Redis | Cluster;
+  // logger.log(`Redis client initialized: ${redisClient instanceof Redis ? 'Single instance' : (redisClient instanceof Cluster ? 'Cluster instance' : 'Unknown instance')}`);
+  // hack so we can replace the internals with our redis client
+  const throttlerStorage = new ThrottlerStorageRedisService({ lazyConnect: true });
+  throttlerStorage.redis = redisClient;
   const throttlerModule = ThrottlerModule.forRoot({
     throttlers: [
       {
@@ -20,7 +26,7 @@ export async function createAppModule(): Promise<DynamicModule> {
         limit: 100,
       },
     ],
-    storage: new ThrottlerStorageRedisService(redisClient as Redis),
+    storage: throttlerStorage,
   });
 
   return {
@@ -37,6 +43,6 @@ export async function createAppModule(): Promise<DynamicModule> {
       }),
       throttlerModule,
     ],
-    providers: [AppService],
+    providers: [AppService, { provide: RedisService, useValue: redisService }, RedisManagerService],
   };
 }
