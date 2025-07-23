@@ -1,6 +1,6 @@
 import * as sourceMapSupport from 'source-map-support';
 sourceMapSupport.install();
-import 'dotenv/config';
+import './instrument'; // Ensure this is imported before any other modules
 
 import { NestFactory } from '@nestjs/core';
 import { FastifyAdapter, NestFastifyApplication } from '@nestjs/platform-fastify';

@@ -8,6 +8,8 @@ import { ThrottlerModule, seconds } from '@nestjs/throttler';
 import { ThrottlerStorageRedisService } from '@nest-lab/throttler-storage-redis';
 import { Cluster, RedisManagerService, RedisService } from './common/services/redis';
 import Redis from 'ioredis';
+import { SentryGlobalFilter, SentryModule } from '@sentry/nestjs/setup';
+import { APP_FILTER } from '@nestjs/core';
 // import { Logger } from './common/services/logger';
 
 // app.module.ts
@@ -32,6 +34,7 @@ export async function createAppModule(): Promise<DynamicModule> {
   return {
     module: class AppModule {},
     imports: [
+      SentryModule.forRoot(),
       PrismaModule,
       HealthModule,
       ConfigModule.forRoot(),
@@ -43,6 +46,14 @@ export async function createAppModule(): Promise<DynamicModule> {
       }),
       throttlerModule,
     ],
-    providers: [AppService, { provide: RedisService, useValue: redisService }, RedisManagerService],
+    providers: [
+      {
+        provide: APP_FILTER,
+        useClass: SentryGlobalFilter,
+      },
+      AppService,
+      { provide: RedisService, useValue: redisService },
+      RedisManagerService,
+    ],
   };
 }
