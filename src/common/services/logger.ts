@@ -1,28 +1,21 @@
 // import { AuthOrgUserDto, AuthWorkerDto } from '@app/auth/dto/auth-user.dto';
 import { Environment } from '../enums';
 import { ConsoleLogger } from '@nestjs/common';
-// import * as Sentry from '@sentry/node';
+import * as Sentry from '@sentry/node';
 
-// const LevelMap: Record<string, Sentry.SeverityLevel> = {
-//   log: 'log',
-//   error: 'error',
-//   warn: 'warning',
-//   debug: 'debug',
-//   verbose: 'info',
-// };
+const LevelMap: Record<string, Sentry.SeverityLevel> = {
+  log: 'log',
+  error: 'error',
+  warn: 'warning',
+  debug: 'debug',
+  verbose: 'info',
+};
 
 export class Logger extends ConsoleLogger {
   private logMessage(level: string, message: unknown, ...optionalParams: unknown[]): void {
     if (process.env.NODE_ENV == Environment.test && !process.env.TEST_LOGS) {
       return;
     }
-    // Sentry.addBreadcrumb({
-    //   message,
-    //   level: LevelMap[level],
-    //   data: {
-    //     optionalParams,
-    //   },
-    // });
 
     let safeMessage: string;
     if (typeof message === 'string') {
@@ -35,6 +28,15 @@ export class Logger extends ConsoleLogger {
       }
     }
     const formattedMessage = safeMessage.replace(/[\r\n]+/g, '\\n ');
+
+    Sentry.addBreadcrumb({
+      message: formattedMessage,
+      level: LevelMap[level],
+      data: {
+        optionalParams,
+      },
+    });
+
     switch (level) {
       case 'log':
         super.log(formattedMessage, ...optionalParams);
@@ -76,63 +78,3 @@ export class Logger extends ConsoleLogger {
     this.logMessage('verbose', message, ...optionalParams);
   }
 }
-
-// export class IdealUserLogger extends IdealLogger {
-//   private prependUserId(
-//     user: AuthWorkerDto | AuthOrgUserDto,
-//     message: any,
-//   ): string {
-//     let userId = '';
-//     if (user && user.hasOwnProperty('worker')) {
-//       userId = (<AuthWorkerDto>user).worker.id as string;
-//     } else if (user && user.hasOwnProperty('orgUser')) {
-//       userId = (<AuthOrgUserDto>user).orgUser.id;
-//     }
-//     return `[${userId}] ${message}`;
-//   }
-
-//   log(
-//     user: AuthWorkerDto | AuthOrgUserDto,
-//     message: any,
-//     ...optionalParams: any[]
-//   ): void {
-//     message = this.prependUserId(user, message);
-//     super.log(message, ...optionalParams);
-//   }
-
-//   error(
-//     user: AuthWorkerDto | AuthOrgUserDto,
-//     message: any,
-//     ...optionalParams: any[]
-//   ): void {
-//     message = this.prependUserId(user, message);
-//     super.error(message, ...optionalParams);
-//   }
-
-//   warn(
-//     user: AuthWorkerDto | AuthOrgUserDto,
-//     message: any,
-//     ...optionalParams: any[]
-//   ): void {
-//     message = this.prependUserId(user, message);
-//     super.warn(message, ...optionalParams);
-//   }
-
-//   debug(
-//     user: AuthWorkerDto | AuthOrgUserDto,
-//     message: any,
-//     ...optionalParams: any[]
-//   ): void {
-//     message = this.prependUserId(user, message);
-//     super.debug(message, ...optionalParams);
-//   }
-
-//   verbose(
-//     user: AuthWorkerDto | AuthOrgUserDto,
-//     message: any,
-//     ...optionalParams: any[]
-//   ): void {
-//     message = this.prependUserId(user, message);
-//     super.verbose(message, ...optionalParams);
-//   }
-// }
