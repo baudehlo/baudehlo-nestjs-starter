@@ -31,7 +31,7 @@ const isProduction = process.env.NODE_ENV === Environment.production;
 async function bootstrap() {
   try {
     const logger = new Logger('Bootstrap');
-    const { version } = JSON.parse(await readFile('package.json', 'utf-8')) as { version: string };
+    const { name, description, version } = JSON.parse(await readFile('package.json', 'utf-8')) as { version: string; name: string; description: string };
 
     const serverOptions: FastifyServerOptions = {
       trustProxy: true,
@@ -82,18 +82,13 @@ async function bootstrap() {
     const payloadLimit = bytes.parse(process.env.PAYLOAD_LIMIT || '10mb') || undefined;
     app.useBodyParser('json', { bodyLimit: payloadLimit });
 
-    const config = new DocumentBuilder()
-      .setTitle('Matt Template API')
-      .setDescription('The Matt Template API description')
-      .setVersion(version)
-      .addBearerAuth()
-      .build();
+    const config = new DocumentBuilder().setTitle(`API for ${name}`).setDescription(description).setVersion(version).addBearerAuth().build();
 
     const document = SwaggerModule.createDocument(app, config);
     SwaggerModule.setup('api', app, document);
 
     await app.listen(process.env.PORT ?? 3000);
-    logger.log(`Application is running on: ${await app.getUrl()}`);
+    logger.log(`Application ${name} is running on: ${await app.getUrl()}`);
   } catch (error) {
     const logger = new Logger('Bootstrap');
     logger.error('Error during application bootstrap', error);

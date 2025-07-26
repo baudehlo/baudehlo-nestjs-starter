@@ -1,7 +1,7 @@
 {
-  "name": "jobber-backend",
+  "name": "baudehlo/node-nestjs-starter",
   "version": "0.0.1",
-  "description": "",
+  "description": "Starter Template for NestJS with Fastify, Prisma, Sentry, and more",
   "author": "",
   "private": true,
   "license": "UNLICENSED",
