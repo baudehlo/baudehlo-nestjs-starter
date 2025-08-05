@@ -2,7 +2,7 @@
 # BUILD FOR LOCAL DEVELOPMENT
 ###################
 
-FROM node:alpine As development
+FROM node:alpine AS development
 
 WORKDIR /usr/src/app
 
@@ -20,11 +20,11 @@ USER node
 # BUILD FOR PRODUCTION
 ###################
 
-FROM node:alpine As build
+FROM node:alpine AS build
 
-ARG SENTRY_AUTH_TOKEN
-ARG SENTRY_RELEASE
-ENV SENTRY_AUTH_TOKEN=${SENTRY_AUTH_TOKEN} SENTRY_RELEASE=${SENTRY_RELEASE}
+# ARG SENTRY_AUTH_TOKEN
+# ARG SENTRY_RELEASE
+# ENV SENTRY_AUTH_TOKEN=${SENTRY_AUTH_TOKEN} SENTRY_RELEASE=${SENTRY_RELEASE}
 
 WORKDIR /usr/src/app
 
@@ -34,7 +34,7 @@ COPY --chown=node:node --from=development /usr/src/app/node_modules ./node_modul
 
 COPY --chown=node:node . .
 
-ENV NODE_ENV production
+ENV NODE_ENV=production
 
 RUN npm run build
 
@@ -44,7 +44,7 @@ USER node
 # PRODUCTION
 ###################
 
-FROM node:alpine As production
+FROM node:alpine AS production
 
 ARG NODE_ENV=production
 ENV NODE_ENV=${NODE_ENV}
@@ -57,13 +57,14 @@ COPY prisma ./prisma
 COPY --chown=node:node . .
 COPY --from=build --chown=node:node /usr/src/app/node_modules ./node_modules
 COPY --from=build --chown=node:node /usr/src/app/dist ./dist
-COPY --from=build --chown=node:node /usr/src/app/bootstrap.ts .
+# COPY --from=build --chown=node:node /usr/src/app/bootstrap.ts .
 
-RUN apk update && apk add --no-cache --upgrade bash
+RUN apk update && apk add --no-cache --upgrade bash perl postgresql-client
 
 RUN find . -name .env -delete
 
-ENTRYPOINT DATABASE_URL="postgresql://${DB_USERNAME}:${DB_PASSWORD}@${DB_HOST}:${DB_PORT}/yukon?schema=api" npx prisma migrate deploy && npm run start:prod
+ENTRYPOINT ["sh", "-c", "npx prisma migrate deploy && npm run start:prod"]
+# ENTRYPOINT ["sh", "-c", "perl -le sleep"]
 
 EXPOSE 3000
 

@@ -107,10 +107,14 @@ export class RedisService<T extends RedisClientT> implements OnModuleInit, OnMod
 
     if (process.env.REDIS_USE_CLUSTER) {
       this.logger.log(`Connecting to CLUSTERED redis at ${host}:${port}`);
-      this.client = new Redis.Cluster([{ host, port }]);
+      this.client = new Redis.Cluster([{ host, port }], {
+        redisOptions: {
+          tls: {},
+        },
+      });
     } else {
       this.logger.log(`Connecting to redis at ${host}:${port}`);
-      this.client = new Redis({ host, port });
+      this.client = new Redis({ host, port, tls: {} });
     }
     this.redlock = new Redlock([this.client], {
       // The expected clock drift; for more details see:

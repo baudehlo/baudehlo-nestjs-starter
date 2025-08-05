@@ -8,8 +8,12 @@ async function main() {
   const env = (app.node.tryGetContext('ENVIRONMENT') || 'Dev') as string;
   console.log(`Deploying to ${env}`);
   const { name } = JSON.parse(await readFile('../package.json', 'utf-8')) as { version: string; name: string; description: string };
+  const strippedName = name
+    .toLowerCase()
+    .replace(/.*\//, '') // remove `baudehlo/` prefix
+    .replace(/[^a-z0-9.-]/g, '');
 
-  const envName = `${name}-Infrastructure-${env.charAt(0).toUpperCase()}${env.slice(1)}`;
+  const envName = `${strippedName}-Infrastructure-${env.charAt(0).toUpperCase()}${env.slice(1)}`;
   new InfraStack(app, envName, {
     /* If you don't specify 'env', this stack will be environment-agnostic.
      * Account/Region-dependent features and context lookups will not work,
@@ -26,7 +30,8 @@ async function main() {
     /* For more information, see https://docs.aws.amazon.com/cdk/latest/guide/environments.html */
     tags: {
       Environment: env,
-      Project: name,
+      Project: strippedName,
+      DNSName: process.env.DNS_NAME || `${strippedName}.${env.toLowerCase()}.sergeant.org`,
     },
   });
 }
