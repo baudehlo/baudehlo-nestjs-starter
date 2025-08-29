@@ -9,6 +9,7 @@ import * as logs from 'aws-cdk-lib/aws-logs';
 import * as elasticache from 'aws-cdk-lib/aws-elasticache';
 import * as secretsmanager from 'aws-cdk-lib/aws-secretsmanager';
 import * as servicediscovery from 'aws-cdk-lib/aws-servicediscovery';
+import * as iam from 'aws-cdk-lib/aws-iam';
 import { Certificate, CertificateValidation } from 'aws-cdk-lib/aws-certificatemanager';
 import { wafService } from './waf';
 import path from 'node:path';
@@ -327,24 +328,37 @@ export function statsdService(
     streamPrefix: 'statsd',
   });
 
-  const secret = new secretsmanager.Secret(stack, `${name}/${env}/Statsd-Secret`, {
-    secretName: `${name}/${env}/statsd-secret`,
+  const iamUser = new iam.User(stack, `${name}/${env}/Statsd-IAM-User`, {
+    userName: `${name}-${env}-statsd-iam-user`,
+    managedPolicies: [
+      iam.ManagedPolicy.fromAwsManagedPolicyName('CloudWatchFullAccess'),
+      iam.ManagedPolicy.fromAwsManagedPolicyName('AmazonSSMManagedInstanceCore'),
+    ],
+  });
+
+  const accessKey = new iam.AccessKey(stack, `${name}/${env}/Statsd-IAM-User-AccessKey`, {
+    user: iamUser,
+  });
+
+  const accessSecrets = new secretsmanager.Secret(stack, `${name}/${env}/Statsd-IAM-User-Secret`, {
+    secretName: `${name}/${env}/statsd-iam-user-secret`,
     secretObjectValue: {
       namespace: cdk.SecretValue.unsafePlainText(`${name}.${env.toLocaleLowerCase()}`),
       region: cdk.SecretValue.unsafePlainText(stack.region),
-      accessKeyId: cdk.SecretValue.unsafePlainText('Fill in later'),
-      secretAccessKey: cdk.SecretValue.unsafePlainText('Fill in later'),
+      accessKeyId: cdk.SecretValue.unsafePlainText(accessKey.accessKeyId),
+      secretAccessKey: accessKey.secretAccessKey,
     },
+    description: 'Access keys for the statsd iam user',
   });
 
   const container = (taskDefinition.defaultContainer = taskDefinition.addContainer(`statsd`, {
     image: ecs.ContainerImage.fromRegistry('leamarty/statsd-cloudwatch-docker'),
     logging: logDriver,
     secrets: {
-      CLOUDWATCH_NAMESPACE: ecs.Secret.fromSecretsManager(secret, 'namespace'),
-      AWS_REGION: ecs.Secret.fromSecretsManager(secret, 'region'),
-      AWS_KEY_ID: ecs.Secret.fromSecretsManager(secret, 'accessKeyId'),
-      AWS_KEY: ecs.Secret.fromSecretsManager(secret, 'secretAccessKey'),
+      CLOUDWATCH_NAMESPACE: ecs.Secret.fromSecretsManager(accessSecrets, 'namespace'),
+      AWS_REGION: ecs.Secret.fromSecretsManager(accessSecrets, 'region'),
+      AWS_KEY_ID: ecs.Secret.fromSecretsManager(accessSecrets, 'accessKeyId'),
+      AWS_KEY: ecs.Secret.fromSecretsManager(accessSecrets, 'secretAccessKey'),
     },
     containerName: 'statsd',
   }));
