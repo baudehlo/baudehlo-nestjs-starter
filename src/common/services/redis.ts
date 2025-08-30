@@ -1,5 +1,5 @@
 import Redis, { Cluster } from 'ioredis';
-import { Injectable, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
+import { Inject, Injectable, OnModuleDestroy, OnModuleInit, Optional } from '@nestjs/common';
 import { isProduction } from '../enums/environment';
 import Redlock, { Lock } from 'redlock';
 import { LoggerService } from './logger';
@@ -96,7 +96,7 @@ export class RedisService<T extends RedisClientT> implements OnModuleInit, OnMod
   private retryStrategyErrorDetected = false;
   private redlock: Redlock;
 
-  constructor(private readonly logger: LoggerService) {}
+  constructor(@Optional() @Inject(LoggerService) private readonly logger?: LoggerService) {}
 
   async onModuleInit(): Promise<void> {
     if (this.client || !isProduction) {
@@ -107,14 +107,14 @@ export class RedisService<T extends RedisClientT> implements OnModuleInit, OnMod
     const port = Number(process.env.REDIS_PORT) || 6379;
 
     if (process.env.REDIS_USE_CLUSTER) {
-      this.logger.log(`Connecting to CLUSTERED redis at ${host}:${port}`);
+      this.logger?.log(`Connecting to CLUSTERED redis at ${host}:${port}`);
       this.client = new Redis.Cluster([{ host, port }], {
         redisOptions: {
           tls: {},
         },
       });
     } else {
-      this.logger.log(`Connecting to redis at ${host}:${port}`);
+      this.logger?.log(`Connecting to redis at ${host}:${port}`);
       this.client = new Redis({ host, port, tls: {} });
     }
     this.redlock = new Redlock([this.client], {
@@ -140,7 +140,7 @@ export class RedisService<T extends RedisClientT> implements OnModuleInit, OnMod
     });
 
     this.client.on('error', (err) => {
-      this.logger.error('Redis Client Error', err);
+      this.logger?.error('Redis Client Error', err);
       process.exit(1);
     });
 
@@ -161,17 +161,17 @@ export class RedisService<T extends RedisClientT> implements OnModuleInit, OnMod
       return new RedlockMock() as unknown as Lock;
     }
     if (!this.client) {
-      this.logger.warn(new Error(`No redis client connected yet - pre bootstrap?`).stack);
+      this.logger?.warn(new Error(`No redis client connected yet - pre bootstrap?`).stack);
       await this.onModuleInit();
     }
     const settings = {
       retryDelay: ttl / this.redlock.settings.retryCount + 2,
     };
-    this.logger.debug(`Acquiring lock for ${key} with ttl ${ttl}`);
+    this.logger?.debug(`Acquiring lock for ${key} with ttl ${ttl}`);
     const lock = await this.redlock.acquire([key], ttl, settings);
 
     lock.safeRelease = async (): Promise<void> => {
-      this.logger.debug(`Releasing lock for ${key}`);
+      this.logger?.debug(`Releasing lock for ${key}`);
       if (lock.expiration > Date.now()) {
         await lock.release();
       }
@@ -184,7 +184,7 @@ export class RedisService<T extends RedisClientT> implements OnModuleInit, OnMod
       return new RedisMock() as T;
     }
     if (!this.client) {
-      this.logger.warn(new Error(`No redis client connected yet - pre bootstrap?`).stack);
+      this.logger?.warn(new Error(`No redis client connected yet - pre bootstrap?`).stack);
       await this.onModuleInit();
     }
     return this.client as T;

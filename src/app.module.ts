@@ -10,15 +10,12 @@ import { Cluster, RedisManagerService, RedisService } from './common/services/re
 import Redis from 'ioredis';
 import { SentryGlobalFilter, SentryModule } from '@sentry/nestjs/setup';
 import { APP_FILTER } from '@nestjs/core';
-import { ClsModule, ClsService } from 'nestjs-cls';
+import { ClsModule } from 'nestjs-cls';
 import { randomUUID } from 'node:crypto';
-import { AsyncLocalStorage } from 'node:async_hooks';
-import { LoggerService } from './common/services/logger';
-// import { Logger } from './common/services/logger';
 
 // app.module.ts
 export async function createAppModule(): Promise<DynamicModule> {
-  const redisService = new RedisService(new LoggerService(new ClsService(new AsyncLocalStorage())));
+  const redisService = new RedisService();
   const redisClient = (await redisService.getClient()) as Redis | Cluster;
 
   // hack so we can replace the internals with our redis client
