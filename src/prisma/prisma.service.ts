@@ -2,7 +2,7 @@ import { Injectable, OnModuleInit, OnModuleDestroy } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Interval } from '@nestjs/schedule';
 import { StatsD } from 'hot-shots';
-import { Logger } from 'src/common/services/logger';
+import { LoggerService } from 'src/common/services/logger';
 import { Environment } from 'src/common/enums';
 import { Decimal, Metric, MetricHistogram } from '@prisma/client/runtime/library';
 import { Prisma, PrismaClient } from 'generated/prisma/client';
@@ -31,7 +31,7 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
 
   constructor(
     private readonly metrics: StatsD,
-    private readonly logger: Logger,
+    private readonly logger: LoggerService,
   ) {
     super({ log: [{ emit: 'event', level: 'query' }] });
 

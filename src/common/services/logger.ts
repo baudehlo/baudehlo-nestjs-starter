@@ -13,7 +13,7 @@ const LevelMap: Record<string, Sentry.SeverityLevel> = {
 };
 
 @Injectable()
-export class Logger extends ConsoleLogger {
+export class LoggerService extends ConsoleLogger {
   constructor(private readonly cls: ClsService) {
     super();
   }

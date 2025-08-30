@@ -2,7 +2,7 @@ import Redis, { Cluster } from 'ioredis';
 import { Injectable, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
 import { isProduction } from '../enums/environment';
 import Redlock, { Lock } from 'redlock';
-import { Logger } from './logger';
+import { LoggerService } from './logger';
 
 export { Cluster };
 const REDIS_LOCK_DEFAULT_TTL = parseInt(process.env.REDIS_LOCK_DEFAULT_TTL || '20000', 10);
@@ -96,7 +96,7 @@ export class RedisService<T extends RedisClientT> implements OnModuleInit, OnMod
   private retryStrategyErrorDetected = false;
   private redlock: Redlock;
 
-  constructor(private readonly logger: Logger) {}
+  constructor(private readonly logger: LoggerService) {}
 
   async onModuleInit(): Promise<void> {
     if (this.client || !isProduction) {
@@ -209,7 +209,7 @@ export interface RedisCheckSettings {
 export class RedisHealthIndicator {
   constructor(
     private readonly healthIndicatorService: HealthIndicatorService,
-    private readonly logger: Logger,
+    private readonly logger: LoggerService,
   ) {}
 
   /**

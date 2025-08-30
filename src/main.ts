@@ -11,7 +11,7 @@ import { createAppModule } from './app.module';
 import helmet from 'helmet';
 import { BadRequestException } from '@nestjs/common';
 import { Environment } from './common/enums';
-import { Logger } from './common/services/logger';
+import { LoggerService } from './common/services/logger';
 import RedisStore from 'fastify-session-redis-store';
 import { RedisService } from './common/services/redis';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
@@ -43,7 +43,7 @@ async function bootstrap() {
     await app.init();
 
     const redisService = await app.resolve(RedisService);
-    const logger = await app.resolve(Logger);
+    const logger = await app.resolve(LoggerService);
 
     const redisClient = await redisService.getClient();
 
