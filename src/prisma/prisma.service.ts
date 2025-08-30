@@ -27,10 +27,12 @@ const transformDecimalsToNumbers = (obj: object): void => {
 
 @Injectable()
 export class PrismaService extends PrismaClient implements OnModuleInit, OnModuleDestroy {
-  private readonly logger = new Logger(PrismaService.name);
   private previousHistograms: Metric<MetricHistogram>[] | null = null;
 
-  constructor(private readonly metrics: StatsD) {
+  constructor(
+    private readonly metrics: StatsD,
+    private readonly logger: Logger,
+  ) {
     super({ log: [{ emit: 'event', level: 'query' }] });
 
     this.logger.log(`Prisma v${Prisma.prismaVersion.client}`);

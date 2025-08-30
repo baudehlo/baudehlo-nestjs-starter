@@ -3,10 +3,12 @@ import { DiskHealthIndicator, HealthCheckResult, HealthCheckService, PrismaHealt
 import { PrismaService } from '../prisma/prisma.service';
 import { RedisClientT, RedisHealthIndicator, RedisService } from 'src/common/services/redis';
 import { ConfigService } from '@nestjs/config/dist/config.service';
+import { Logger } from 'src/common/services/logger';
 
 @Injectable()
 export class HealthService {
   constructor(
+    private readonly logger: Logger,
     private readonly configService: ConfigService<{ REDIS_MEMORY_THRESHOLD_BYTES: number; DISK_THRESHOLD_PERCENT: number }>,
     private readonly health: HealthCheckService,
     private readonly disk: DiskHealthIndicator,

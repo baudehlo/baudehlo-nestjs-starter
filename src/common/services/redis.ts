@@ -92,10 +92,11 @@ export type RedisClientT = Redis | Cluster | RedisMock | undefined;
 
 @Injectable()
 export class RedisService<T extends RedisClientT> implements OnModuleInit, OnModuleDestroy {
-  private logger = new Logger(RedisService.name);
   private client: RedisClientT;
   private retryStrategyErrorDetected = false;
   private redlock: Redlock;
+
+  constructor(private readonly logger: Logger) {}
 
   async onModuleInit(): Promise<void> {
     if (this.client || !isProduction) {
@@ -206,8 +207,10 @@ export interface RedisCheckSettings {
  */
 @Injectable()
 export class RedisHealthIndicator {
-  private readonly logger = new Logger(RedisHealthIndicator.name);
-  constructor(private readonly healthIndicatorService: HealthIndicatorService) {}
+  constructor(
+    private readonly healthIndicatorService: HealthIndicatorService,
+    private readonly logger: Logger,
+  ) {}
 
   /**
    * Checks a redis/cluster connection.

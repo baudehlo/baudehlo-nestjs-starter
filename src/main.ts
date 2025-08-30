@@ -30,7 +30,6 @@ const isProduction = process.env.NODE_ENV === Environment.production;
 
 async function bootstrap() {
   try {
-    const logger = new Logger('Bootstrap');
     const { name, description, version } = JSON.parse(await readFile('package.json', 'utf-8')) as { version: string; name: string; description: string };
 
     const serverOptions: FastifyServerOptions = {
@@ -44,6 +43,7 @@ async function bootstrap() {
     await app.init();
 
     const redisService = await app.resolve(RedisService);
+    const logger = await app.resolve(Logger);
 
     const redisClient = await redisService.getClient();
 
@@ -90,8 +90,7 @@ async function bootstrap() {
     await app.listen(process.env.PORT ?? 3000);
     logger.log(`Application ${name} is running on: ${await app.getUrl()}`);
   } catch (error) {
-    const logger = new Logger('Bootstrap');
-    logger.error('Error during application bootstrap', error);
+    console.error('Error during application bootstrap', error);
     process.exit(1); // Exit the process with an error code
   }
 }

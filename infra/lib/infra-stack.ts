@@ -262,6 +262,15 @@ export class InfraStack extends cdk.Stack {
       maxHealthyPercent: 200,
     });
 
+    fargateService
+      .autoScaleTaskCount({
+        minCapacity: 1,
+        maxCapacity: 20,
+      })
+      .scaleOnCpuUtilization('CpuScaling', {
+        targetUtilizationPercent: 50,
+      });
+
     const certificate = new Certificate(this, `${name}/${env}/TLS-Certificate`, {
       domainName: `*.${zoneName}`,
       validation: CertificateValidation.fromDns(hostedZone),

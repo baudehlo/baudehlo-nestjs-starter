@@ -1,4 +1,4 @@
-import { DynamicModule } from '@nestjs/common';
+import { DynamicModule, ExecutionContext } from '@nestjs/common';
 import { AppService } from './app.service';
 import { HealthModule } from './health/health.module';
 import { ConfigModule } from '@nestjs/config';
@@ -10,14 +10,17 @@ import { Cluster, RedisManagerService, RedisService } from './common/services/re
 import Redis from 'ioredis';
 import { SentryGlobalFilter, SentryModule } from '@sentry/nestjs/setup';
 import { APP_FILTER } from '@nestjs/core';
+import { ClsModule, ClsService } from 'nestjs-cls';
+import { randomUUID } from 'node:crypto';
+import { AsyncLocalStorage } from 'node:async_hooks';
+import { Logger } from './common/services/logger';
 // import { Logger } from './common/services/logger';
 
 // app.module.ts
 export async function createAppModule(): Promise<DynamicModule> {
-  // const logger = new Logger('AppModule');
-  const redisService = new RedisService();
+  const redisService = new RedisService(new Logger(new ClsService(new AsyncLocalStorage())));
   const redisClient = (await redisService.getClient()) as Redis | Cluster;
-  // logger.log(`Redis client initialized: ${redisClient instanceof Redis ? 'Single instance' : (redisClient instanceof Cluster ? 'Cluster instance' : 'Unknown instance')}`);
+
   // hack so we can replace the internals with our redis client
   const throttlerStorage = new ThrottlerStorageRedisService({ lazyConnect: true });
   throttlerStorage.redis = redisClient;
@@ -34,6 +37,18 @@ export async function createAppModule(): Promise<DynamicModule> {
   return {
     module: class AppModule {},
     imports: [
+      ClsModule.forRoot({
+        global: true,
+        guard: {
+          mount: true,
+          generateId: true,
+          idGenerator: (ctx: ExecutionContext): string => {
+            // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+            return `${ctx.switchToHttp().getRequest().headers['x-request-id'] || randomUUID()}`;
+          },
+        },
+      }),
+
       SentryModule.forRoot(),
       PrismaModule,
       HealthModule,
