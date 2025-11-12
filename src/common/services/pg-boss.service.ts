@@ -1,5 +1,6 @@
-import { forwardRef, HttpException, Inject, Injectable, OnApplicationShutdown, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
+import { HttpException, Injectable, OnApplicationShutdown, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { ModuleRef } from '@nestjs/core';
 import * as Sentry from '@sentry/nestjs';
 import {
   PgBoss,
@@ -14,7 +15,7 @@ import {
   ScheduleOptions as PgScheduleOptions,
 } from 'pg-boss';
 import { PrismaService } from 'src/prisma/prisma.service';
-import { LoggerService } from '../../logger/logger';
+import { LoggerService } from 'src/logger/logger';
 
 export type Job<T = object> = PgJob<T>;
 export type JobWithMetadata<T = object> = PgJobWithMetadata<T>;
@@ -43,12 +44,12 @@ export class PgBossService implements OnModuleInit, OnModuleDestroy, OnApplicati
   public batchSize: number;
   public pollingInterval: number;
   public pgBossSchema: string;
+  private prisma: PrismaService;
 
   constructor(
     private readonly logger: LoggerService,
     private readonly config: ConfigService,
-    @Inject(forwardRef(() => PrismaService))
-    private readonly prisma: PrismaService,
+    private readonly moduleRef: ModuleRef,
   ) {
     this.batchSize = this.config.get<number>('PG_BOSS_BATCH_SIZE', 5);
     this.pollingInterval = this.config.get<number>('PG_BOSS_POLLING_INTERVAL', 2);
@@ -59,6 +60,9 @@ export class PgBossService implements OnModuleInit, OnModuleDestroy, OnApplicati
     if (this.boss) {
       return;
     }
+
+    // Lazy load PrismaService to avoid circular dependency with ESM
+    this.prisma = this.moduleRef.get(PrismaService, { strict: false });
 
     if (!process.env.DATABASE_URL) {
       throw new Error('DATABASE_URL environment variable not set');
