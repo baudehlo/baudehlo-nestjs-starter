@@ -1,8 +1,8 @@
 // import { AuthOrgUserDto, AuthWorkerDto } from '@app/auth/dto/auth-user.dto';
-import { Environment } from '../enums';
 import { ConsoleLogger, Injectable } from '@nestjs/common';
 import * as Sentry from '@sentry/node';
-import { ClsService } from 'nestjs-cls/dist/src/lib/cls.service';
+import { ClsService } from 'nestjs-cls';
+import { Environment } from '../common/enums';
 
 const LevelMap: Record<string, Sentry.SeverityLevel> = {
   log: 'log',
@@ -15,7 +15,9 @@ const LevelMap: Record<string, Sentry.SeverityLevel> = {
 @Injectable()
 export class LoggerService extends ConsoleLogger {
   constructor(private readonly cls: ClsService) {
-    super();
+    super({
+      colors: !process.env.NO_COLOR,
+    });
   }
 
   private logMessage(level: string, message: unknown, ...optionalParams: unknown[]): void {
@@ -33,7 +35,8 @@ export class LoggerService extends ConsoleLogger {
         safeMessage = String(message);
       }
     }
-    const formattedMessage = `[${this.cls.getId()}] ${safeMessage.replace(/[\r\n]+/g, '\\n ')}`;
+    const requestId = this.cls.getId();
+    const formattedMessage = `[${requestId ?? 'CORE'}] ${safeMessage.replace(/[\r\n]+/g, '\\n ')}`;
 
     Sentry.addBreadcrumb({
       message: formattedMessage,
@@ -84,3 +87,17 @@ export class LoggerService extends ConsoleLogger {
     this.logMessage('verbose', message, ...optionalParams);
   }
 }
+
+const systemLogger = new ConsoleLogger('PROCESS');
+process.on('warning', (warning) => {
+  systemLogger.warn(warning.name, warning.message, warning.stack);
+});
+process.on('unhandledRejection', (reason, promise) => {
+  systemLogger.error('Unhandled Rejection at:', promise, 'reason:', reason);
+  Sentry.captureException(reason);
+});
+process.on('uncaughtException', (error) => {
+  systemLogger.error('Uncaught Exception thrown:', error.message, error.stack);
+  Sentry.captureException(error);
+  process.exit(1);
+});

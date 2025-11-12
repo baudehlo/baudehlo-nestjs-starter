@@ -1,6 +1,6 @@
 import { ThrottlerStorageRedisService } from '@nest-lab/throttler-storage-redis';
 import { HttpModule } from '@nestjs/axios';
-import { DynamicModule, ExecutionContext, ModuleMetadata, Type } from '@nestjs/common';
+import { DynamicModule, ModuleMetadata, Type } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { APP_FILTER } from '@nestjs/core';
 import { JwtModule, JwtService } from '@nestjs/jwt';
@@ -13,15 +13,15 @@ import Redis from 'ioredis';
 import { ClsModule } from 'nestjs-cls';
 import { HotShotsModule } from 'nestjs-hot-shots';
 import { randomUUID } from 'node:crypto';
-import { Socket } from 'socket.io';
 import { HealthController } from 'src/health/health.controller';
 import { HealthService } from 'src/health/health.service';
 import { PrismaService } from 'src/prisma/prisma.service';
-import { LoggerService } from '../../services/logger';
+import { LoggerService } from '../../../logger/logger';
 import { PgBossService } from '../../services/pg-boss.service';
 import { Cluster, RedisHealthIndicator, RedisManagerService, RedisService } from '../../services/redis';
 import { AppService } from './app.service';
 import type { StringValue } from 'ms';
+import { LoggerModule } from 'src/logger/logger.module';
 
 // app.module.ts
 export async function createAppModule(prismaClient?: PrismaClient): Promise<DynamicModule> {
@@ -66,16 +66,23 @@ export async function createAppModuleForTest(controllers?: Type<unknown>[], pris
         }),
         inject: [ConfigService],
       }),
+      LoggerModule,
       ClsModule.forRoot({
         global: true,
+        middleware: {
+          mount: true,
+          generateId: true,
+          idGenerator: () => randomUUID(),
+        },
         guard: {
           mount: true,
           generateId: true,
-          idGenerator: (ctx: ExecutionContext): string => {
-            return ctx.getType() == 'ws'
-              ? ctx.switchToWs().getClient<Socket>().id
-              : `${ctx.switchToHttp().getRequest<Request>().headers['x-request-id'] || randomUUID()}`;
-          },
+          idGenerator: () => randomUUID(),
+        },
+        interceptor: {
+          mount: true,
+          generateId: true,
+          idGenerator: () => randomUUID(),
         },
       }),
       SentryModule.forRoot(),
@@ -92,7 +99,6 @@ export async function createAppModuleForTest(controllers?: Type<unknown>[], pris
       ConfigService,
       JwtService,
       Reflector,
-      LoggerService,
       HealthService,
       prismaClient
         ? {

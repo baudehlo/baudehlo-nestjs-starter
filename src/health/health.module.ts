@@ -5,7 +5,7 @@ import { TerminusModule } from '@nestjs/terminus';
 import { HttpModule } from '@nestjs/axios';
 import { RedisHealthIndicator, RedisService } from 'src/common/services/redis';
 import { ConfigService } from '@nestjs/config/dist/config.service';
-import { LoggerService } from 'src/common/services/logger';
+import { LoggerService } from 'src/logger/logger';
 
 @Module({
   controllers: [HealthController],

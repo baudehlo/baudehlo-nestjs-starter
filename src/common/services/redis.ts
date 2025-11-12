@@ -2,7 +2,7 @@ import Redis, { Cluster } from 'ioredis';
 import { Inject, Injectable, OnModuleDestroy, OnModuleInit, Optional } from '@nestjs/common';
 import { isProduction } from '../enums/environment';
 import Redlock, { Lock } from 'redlock';
-import { LoggerService } from './logger';
+import { LoggerService } from '../../logger/logger';
 
 export { Cluster };
 const REDIS_LOCK_DEFAULT_TTL = parseInt(process.env.REDIS_LOCK_DEFAULT_TTL || '20000', 10);

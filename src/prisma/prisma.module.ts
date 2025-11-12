@@ -2,7 +2,7 @@ import { DynamicModule, Global, Module } from '@nestjs/common';
 import { PrismaClient } from '@prisma/client';
 import { PrismaService } from './prisma.service';
 import { CacheModule } from '@nestjs/cache-manager';
-import { LoggerService } from 'src/common/services/logger';
+import { LoggerService } from 'src/logger/logger';
 
 @Global()
 @Module({

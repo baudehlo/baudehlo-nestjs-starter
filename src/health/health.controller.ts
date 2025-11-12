@@ -1,4 +1,4 @@
-import { Controller, Get } from '@nestjs/common';
+import { Controller, Get, Version, VERSION_NEUTRAL } from '@nestjs/common';
 import { HealthCheck, HealthCheckResult } from '@nestjs/terminus';
 import { HealthService } from './health.service';
 
@@ -8,6 +8,7 @@ export class HealthController {
 
   @Get()
   @HealthCheck()
+  @Version(VERSION_NEUTRAL)
   async check(): Promise<HealthCheckResult> {
     return this.healthService.checkHealth();
   }

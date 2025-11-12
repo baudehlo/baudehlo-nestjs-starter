@@ -14,11 +14,9 @@ import { readFile } from 'node:fs/promises';
 import { cpus } from 'node:os';
 import { RedisIoAdapter } from 'src/common/adapters/redis-io.adapter';
 import { isProduction } from 'src/common/enums';
-import { LoggerService } from 'src/common/services/logger';
+import { LoggerService } from 'src/logger/logger';
 import { RedisService } from 'src/common/services/redis';
 import { createAppModule } from './app.module';
-import { LoggerInterceptor } from 'src/common/interceptors/logger-interceptor';
-import { ConfigService } from '@nestjs/config';
 
 declare module 'fastify' {
   interface Session {
@@ -36,7 +34,6 @@ export async function bootstrap() {
 
     const serverOptions: FastifyServerOptions = {
       trustProxy: true,
-      logger: true,
     };
     const instance: FastifyInstance = fastify(serverOptions);
 
@@ -61,7 +58,6 @@ export async function bootstrap() {
     const redisService = await app.resolve(RedisService);
     const logger = await app.resolve(LoggerService);
     const metrics = await app.resolve(StatsD);
-    const config = await app.resolve(ConfigService);
 
     logger.log(`Starting application ${name} version ${version}`);
 
@@ -101,8 +97,6 @@ export async function bootstrap() {
 
     const payloadLimit = bytes.parse(process.env.PAYLOAD_LIMIT || '10mb') || undefined;
     app.useBodyParser('json', { bodyLimit: payloadLimit });
-
-    app.useGlobalInterceptors(new LoggerInterceptor(metrics, logger, config));
 
     const swaggerConfig = new DocumentBuilder().setTitle(`API for ${name}`).setDescription(description).setVersion(version).addBearerAuth().build();
     const document = SwaggerModule.createDocument(app, swaggerConfig);

@@ -6,7 +6,7 @@ import { ITXClientDenyList } from '@prisma/client/runtime/library';
 import { PrismaClient } from 'generated/prisma';
 import { StatsD } from 'hot-shots';
 import { isProduction } from 'src/common/enums';
-import { LoggerService } from 'src/common/services/logger';
+import { LoggerService } from 'src/logger/logger';
 import { app } from 'src/common/utils/core/bootstrap-app';
 
 export type PrismaTransaction = Omit<PrismaClient, ITXClientDenyList>;

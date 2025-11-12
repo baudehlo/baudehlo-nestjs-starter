@@ -3,7 +3,7 @@ import { DiskHealthIndicator, HealthCheckResult, HealthCheckService, PrismaHealt
 import { PrismaService } from '../prisma/prisma.service';
 import { RedisClientT, RedisHealthIndicator, RedisService } from 'src/common/services/redis';
 import { ConfigService } from '@nestjs/config/dist/config.service';
-import { LoggerService } from 'src/common/services/logger';
+import { LoggerService } from 'src/logger/logger';
 
 @Injectable()
 export class HealthService {

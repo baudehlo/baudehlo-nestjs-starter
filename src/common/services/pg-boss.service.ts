@@ -14,7 +14,7 @@ import {
   ScheduleOptions as PgScheduleOptions,
 } from 'pg-boss';
 import { PrismaService } from 'src/prisma/prisma.service';
-import { LoggerService } from './logger';
+import { LoggerService } from '../../logger/logger';
 
 export type Job<T = object> = PgJob<T>;
 export type JobWithMetadata<T = object> = PgJobWithMetadata<T>;
