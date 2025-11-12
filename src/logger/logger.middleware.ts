@@ -4,7 +4,7 @@ import { LoggerService } from './logger';
 import { HttpAdapterHost } from '@nestjs/core';
 
 @Injectable()
-@Catch()
+@Catch(HttpException)
 export class LoggerMiddlewareOrGuard implements ExceptionFilter {
   public constructor(
     private readonly logger: LoggerService,

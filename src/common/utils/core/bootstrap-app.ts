@@ -17,6 +17,7 @@ import { isProduction } from 'src/common/enums';
 import { LoggerService } from 'src/logger/logger';
 import { RedisService } from 'src/common/services/redis';
 import { createAppModule } from './app.module';
+import { SentryExceptionFilter } from 'src/common/filters/sentry.exception.filter';
 
 declare module 'fastify' {
   interface Session {
@@ -58,6 +59,8 @@ export async function bootstrap() {
     const redisService = await app.resolve(RedisService);
     const logger = await app.resolve(LoggerService);
     const metrics = await app.resolve(StatsD);
+
+    app.useGlobalFilters(new SentryExceptionFilter(logger));
 
     logger.log(`Starting application ${name} version ${version}`);
 
