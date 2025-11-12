@@ -11,6 +11,7 @@
     "format": "prettier --write \"src/**/*.ts\" \"test/**/*.ts\"",
     "start": "nest start",
     "start:dev": "nest start --watch",
+    "dev": "nest start --watch",
     "start:debug": "nest start --debug --watch",
     "start:prod": "node dist/main",
     "repl": "nest start --entryFile repl",
@@ -30,8 +31,8 @@
     "db:bootstrap": "ts-node -r tsconfig-paths/register bootstrap.ts 'FIX-ME-IN-DB'",
     "db:lint": "prisma format && prisma-lint",
     "sentry:sourcemaps": "sentry-cli sourcemaps inject --org baudehlo --project node-nestjs-starter ./dist && sentry-cli sourcemaps upload --org baudehlo --project node-nestjs-starter ./dist",
-    "infra:install": "cd infra && npm i",
-    "infra:deploy": "cd infra && npm i && npx cdk deploy"
+    "infra:deploy": "cd infra && npm i && npx cdk deploy --all",
+    "infra:quiet": "cd infra && npm i && npx cdk deploy --all --require-approval never"
   },
   "dependencies": {
     "@fastify/cookie": "^11.0.2",
