@@ -2,7 +2,7 @@
 # BUILD FOR LOCAL DEVELOPMENT
 ###################
 
-FROM node:alpine AS development
+FROM node:24-alpine AS development
 
 WORKDIR /usr/src/app
 
@@ -20,7 +20,7 @@ USER node
 # BUILD FOR PRODUCTION
 ###################
 
-FROM node:alpine AS build
+FROM node:24-alpine AS build
 
 # ARG SENTRY_AUTH_TOKEN
 # ARG SENTRY_RELEASE
@@ -44,7 +44,7 @@ USER node
 # PRODUCTION
 ###################
 
-FROM node:alpine AS production
+FROM node:24-alpine AS production
 
 ARG NODE_ENV=production
 ENV NODE_ENV=${NODE_ENV}
@@ -57,6 +57,7 @@ COPY prisma ./prisma
 COPY --chown=node:node . .
 COPY --from=build --chown=node:node /usr/src/app/node_modules ./node_modules
 COPY --from=build --chown=node:node /usr/src/app/dist ./dist
+COPY --from=build --chown=node:node /usr/src/app/generated ./generated
 # COPY --from=build --chown=node:node /usr/src/app/bootstrap.ts .
 
 RUN apk update && apk add --no-cache --upgrade bash perl postgresql-client
