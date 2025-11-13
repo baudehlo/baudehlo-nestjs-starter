@@ -14,7 +14,7 @@ async function main() {
     .replace(/[^a-z0-9.-]/g, '');
 
   const envName = `${strippedName}-Infrastructure-${env.charAt(0).toUpperCase()}${env.slice(1)}`;
-  new InfraStack(app, envName, {
+  const stack = new InfraStack(app, envName, {
     /* If you don't specify 'env', this stack will be environment-agnostic.
      * Account/Region-dependent features and context lookups will not work,
      * but a single synthesized template can be deployed anywhere. */
@@ -34,6 +34,8 @@ async function main() {
       DNSName: process.env.DNS_NAME || `${strippedName}.${env.toLowerCase()}.sergeant.org`,
     },
   });
+
+  await stack.build();
 }
 
 void main();

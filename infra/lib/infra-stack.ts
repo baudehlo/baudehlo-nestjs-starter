@@ -177,7 +177,7 @@ export class InfraStack extends cdk.Stack {
       description: `ECS Cluster Name for the ${name} ${env} environment`,
     });
 
-    statsdService(this, env, name, cluster, sgStatsd, namespace);
+    const statsd = statsdService(this, env, name, cluster, sgStatsd, namespace);
 
     // Aurora Serverless PostgreSQL Database
     const dbCredentials = rds.Credentials.fromGeneratedSecret('postgres', {
@@ -358,6 +358,10 @@ export class InfraStack extends cdk.Stack {
       .scaleOnCpuUtilization('CpuScaling', {
         targetUtilizationPercent: 50,
       });
+
+    // Ensure API service depends on the database being created first
+    fargateService.node.addDependency(dbCluster);
+    fargateService.node.addDependency(statsd);
 
     const certificate = new Certificate(this, `${name}/${env}/TLS-Certificate`, {
       domainName: `*.${zoneName}`,
