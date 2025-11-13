@@ -15,10 +15,20 @@ import { wafService } from './waf';
 import path from 'node:path';
 import { RetentionDays } from 'aws-cdk-lib/aws-logs';
 import { Platform } from 'aws-cdk-lib/aws-ecr-assets';
+import { resolve } from 'node:dns/promises';
+import { StringListParameter, StringParameter } from 'aws-cdk-lib/aws-ssm';
 
 export class InfraStack extends cdk.Stack {
+  private params: { scope: Construct; id: string; props?: cdk.StackProps };
+
   constructor(scope: Construct, id: string, props?: cdk.StackProps) {
     super(scope, id, props);
+
+    this.params = { scope, id, props };
+  }
+
+  public async build(): Promise<void> {
+    const { props } = this.params;
 
     const env = props?.tags?.Environment || 'Dev';
     const name = props?.tags?.Project || 'Unknown';
@@ -28,9 +38,48 @@ export class InfraStack extends cdk.Stack {
       throw new Error('DNSName tag is required for the hosted zone');
     }
 
-    const hostedZone = new r53.HostedZone(this, `${name}/${env}/HostedZone`, {
-      zoneName,
-      comment: `Hosted zone for ${name}/${env} environment: ${zoneName}`,
+    let hostedZone: r53.IHostedZone;
+    try {
+      await resolve(zoneName.toString(), 'NS');
+      console.log(`Using existing hosted zone for ${zoneName}`);
+      // Import existing hosted zone
+      hostedZone = r53.HostedZone.fromLookup(this, `${name}/${env}/HostedZone`, {
+        domainName: zoneName,
+      });
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    } catch (error) {
+      console.log(`Creating new hosted zone for ${zoneName}`);
+      // Create new hosted zone
+      hostedZone = new r53.HostedZone(this, `${name}/${env}/HostedZone`, {
+        zoneName,
+        comment: `Hosted zone for ${name}/${env} environment: ${zoneName}`,
+      });
+
+      // Only set up NS record delegation for newly created zones
+      const zoneParts = zoneName.split('.');
+      if (hostedZone.hostedZoneNameServers && zoneParts.length > 2) {
+        const parentZoneName = zoneParts.slice(-2).join('.');
+        const parentZone = r53.HostedZone.fromLookup(this, `${name}/${env}/ParentHostedZone`, {
+          domainName: parentZoneName,
+        });
+        new r53.NsRecord(this, `${name}/${env}/NSRecord`, {
+          zone: parentZone,
+          deleteExisting: true,
+          recordName: zoneName.replace(`.${parentZoneName}`, ''),
+          values: hostedZone.hostedZoneNameServers,
+        });
+      }
+    }
+
+    new StringParameter(this, `${name}/${env}/HostedZoneIDParameter`, {
+      parameterName: `/${name}/${env}/hostedzone/name`,
+      stringValue: zoneName,
+      description: `Route53 Hosted Zone for the ${name} ${env} environment`,
+    });
+    new StringParameter(this, `${name}/${env}/HostedZoneActualIDParameter`, {
+      parameterName: `/${name}/${env}/hostedzone/id`,
+      stringValue: hostedZone.hostedZoneId,
+      description: `Route53 Hosted Zone ID for the ${name} ${env} environment`,
     });
 
     const vpc = new ec2.Vpc(this, `${name}/${env}/VPC`, {
@@ -39,9 +88,36 @@ export class InfraStack extends cdk.Stack {
       enableDnsHostnames: true,
     });
 
+    new StringParameter(this, `${name}/${env}/VPCIDParameter`, {
+      parameterName: `/${name}/${env}/vpc/id`,
+      stringValue: vpc.vpcId,
+      description: `VPC ID for the ${name} ${env} environment`,
+    });
+
+    new StringListParameter(this, `${name}/${env}/SSM-Parameter-PublicSubnets`, {
+      parameterName: `/${name}/${env}/vpc/publicSubnets`,
+      stringListValue: vpc.publicSubnets.map((subnet) => subnet.subnetId),
+    });
+
+    new StringListParameter(this, `${name}/${env}/SSM-Parameter-PrivateSubnets`, {
+      parameterName: `/${name}/${env}/vpc/privateSubnets`,
+      stringListValue: vpc.privateSubnets.map((subnet) => subnet.subnetId),
+    });
+
+    new StringListParameter(this, `${name}/${env}/SSM-Parameter-AvailabilityZones`, {
+      parameterName: `/${name}/${env}/vpc/availabilityZones`,
+      stringListValue: vpc.availabilityZones,
+    });
+
     const namespace = new servicediscovery.PrivateDnsNamespace(this, `${name}/${env}/ServiceDiscoveryNamespace`, {
       name: 'disco',
       vpc,
+    });
+
+    new StringParameter(this, `${name}/${env}/ServiceDiscoveryNamespaceParameter`, {
+      parameterName: `/${name}/${env}/servicediscovery/namespace/arn`,
+      stringValue: namespace.namespaceArn,
+      description: `Service Discovery Namespace for the ${name} ${env} environment`,
     });
 
     const sgPublic = new ec2.SecurityGroup(this, `${name}/${env}/SG-Public-LB`, {
@@ -80,6 +156,12 @@ export class InfraStack extends cdk.Stack {
     sgStatsd.addIngressRule(ec2.Peer.securityGroupId(sgPrivate.securityGroupId), ec2.Port.tcp(8125), `access statsd on tcp from ecs instances`);
     sgStatsd.addIngressRule(ec2.Peer.securityGroupId(sgPrivate.securityGroupId), ec2.Port.udp(8125), `access statsd on udp from ecs instances`);
 
+    new StringParameter(this, `${name}/${env}/PrivateSecurityGroupParameter`, {
+      parameterName: `/${name}/${env}/securitygroup/private/id`,
+      stringValue: sgPrivate.securityGroupId,
+      description: `Security Group ID for the ECS instances in the ${name} ${env} environment`,
+    });
+
     const cluster = new ecs.Cluster(this, `${name}/${env}/ECS-Cluster`, {
       vpc,
       clusterName: `${name}-${env}-cluster`,
@@ -87,6 +169,12 @@ export class InfraStack extends cdk.Stack {
         logging: ecs.ExecuteCommandLogging.DEFAULT,
       },
       containerInsightsV2: ecs.ContainerInsights.ENABLED,
+    });
+
+    new StringParameter(this, `${name}/${env}/ClusterNameParameter`, {
+      parameterName: `/${name}/${env}/ecs/cluster/name`,
+      stringValue: cluster.clusterName,
+      description: `ECS Cluster Name for the ${name} ${env} environment`,
     });
 
     statsdService(this, env, name, cluster, sgStatsd, namespace);

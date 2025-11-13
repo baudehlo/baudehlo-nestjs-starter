@@ -8,7 +8,7 @@ const __dirname = process.cwd();
 
 export default tseslint.config(
   {
-    ignores: ['eslint.config.mjs', 'jest.config.js', 'planllama-change-feed/**'],
+    ignores: ['eslint.config.mjs', 'jest.config.js'],
   },
   eslint.configs.recommended,
   ...tseslint.configs.recommendedTypeChecked,
