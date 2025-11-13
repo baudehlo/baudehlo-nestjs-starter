@@ -240,11 +240,11 @@ export class InfraStack extends cdk.Stack {
     });
 
     // Redis (Elasticache)
-    const redis = new elasticache.CfnServerlessCache(this, `${name}/${env}/Redis`, {
+    const redis = new elasticache.CfnServerlessCache(this, `${name}/${env}/ValKey`, {
       serverlessCacheName: `${name}-${env}-redis`,
       securityGroupIds: [sgRedis.securityGroupId],
       subnetIds: vpc.privateSubnets.map((s) => s.subnetId),
-      engine: 'redis',
+      engine: 'valkey',
     });
 
     sgRedis.addIngressRule(ec2.Peer.securityGroupId(sgPrivate.securityGroupId), ec2.Port.tcp(6379), `access redis from ecs instances`);
