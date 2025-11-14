@@ -373,6 +373,7 @@ export class InfraStack extends cdk.Stack {
       vpc,
       internetFacing: true,
       loadBalancerName: `${name}-${env}-alb`,
+      securityGroup: sgPublic,
     });
     const listener = lb.addListener(`${name}/${env}/PublicListener`, {
       protocol: elb.ApplicationProtocol.HTTPS,
