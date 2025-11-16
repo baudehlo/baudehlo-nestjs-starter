@@ -417,7 +417,7 @@ export function statsdService(
   sgPrivate: ec2.SecurityGroup,
   namespace: servicediscovery.IPrivateDnsNamespace,
 ): ecs.FargateService {
-  const taskDefinition = new ecs.FargateTaskDefinition(stack, `${name}/${env}/Yukon-Statsd-TaskDef`, {
+  const taskDefinition = new ecs.FargateTaskDefinition(stack, `${name}/${env}/Statsd-TaskDef`, {
     memoryLimitMiB: 2048,
     cpu: 512,
   });
@@ -476,7 +476,7 @@ export function statsdService(
     protocol: ecs.Protocol.UDP,
   });
 
-  const service = new ecs.FargateService(stack, `${name}/${env}/Statsd-Yukon`, {
+  const service = new ecs.FargateService(stack, `${name}/${env}/Statsd`, {
     cluster: cluster,
     desiredCount: 2,
     serviceName: 'statsd',
