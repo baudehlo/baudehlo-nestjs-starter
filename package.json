@@ -102,5 +102,8 @@
     "unplugin-swc": "^1.5.9",
     "vite-tsconfig-paths": "^6.1.1",
     "vitest": "^2.1.8"
+  },
+  "prisma": {
+    "seed": "ts-node --compiler-options {\"module\":\"CommonJS\"} prisma/seed.ts"
   }
 }
