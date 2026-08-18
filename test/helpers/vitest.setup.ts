@@ -1,2 +1,5 @@
+import 'reflect-metadata';
+
 // Global test setup for Vitest
-// Add any global beforeAll/afterAll hooks or global mocks here
+// Raise the listener limit to accommodate multiple test-instantiated filters/services
+process.setMaxListeners(50);
