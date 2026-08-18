@@ -30,8 +30,8 @@ export default defineConfig({
 
     pool: 'forks',
     poolOptions: {
-      threads: {
-        singleThread: true,
+      forks: {
+        singleFork: true,
       },
     },
 
