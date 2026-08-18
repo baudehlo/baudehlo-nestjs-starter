@@ -23,8 +23,7 @@ export class RedisIoAdapter extends IoAdapter {
     this.adapterConstructor = createAdapter(pubClient);
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  createIOServer(port: number, options?: ServerOptions): any {
+  createIOServer(port: number, options?: ServerOptions): Server {
     if (options) {
       options.connectionStateRecovery = {
         maxDisconnectionDuration: 2 * 60 * 1000, // clients can reconnect within 2 minutes

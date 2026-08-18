@@ -7,7 +7,7 @@ import { LoggerService } from '../../logger/logger';
 export { Cluster };
 const REDIS_LOCK_DEFAULT_TTL = parseInt(process.env.REDIS_LOCK_DEFAULT_TTL || '20000', 10);
 
-const store = {};
+const store: Record<string, string> = {};
 
 declare module 'redlock' {
   interface Lock {
@@ -16,24 +16,21 @@ declare module 'redlock' {
 }
 
 export class RedisMock {
-  // eslint-disable-next-line @typescript-eslint/require-await
-  async get(key: string): Promise<string | null> {
-    return store[key] !== undefined ? (store[key] as string) : null;
+  get(key: string): Promise<string | null> {
+    return Promise.resolve(store[key] ?? null);
   }
 
-  // eslint-disable-next-line @typescript-eslint/require-await
-  async set(
+  set(
     key: string,
     value: string,
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    ..._ignoreArgs
+    ..._ignoreArgs: string[]
   ): Promise<string | null> {
     store[key] = value;
-    return 'OK';
+    return Promise.resolve('OK');
   }
 
-  // eslint-disable-next-line @typescript-eslint/require-await
-  async del(...keys: string[]): Promise<number | null> {
+  del(...keys: string[]): Promise<number | null> {
     let count = 0;
     for (const key of keys) {
       if (key in store) {
@@ -41,41 +38,37 @@ export class RedisMock {
         count++;
       }
     }
-    return count;
+    return Promise.resolve(count);
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars, @typescript-eslint/require-await
-  async getex(key: string, ..._ignoreArgs): Promise<string | null> {
-    return store[key] !== undefined ? (store[key] as string) : null;
+  getex(key: string, ..._ignoreArgs: string[]): Promise<string | null> {
+    return Promise.resolve(store[key] ?? null);
   }
 
-  async quit(): Promise<void> {
-    // do nothing
+  quit(): Promise<void> {
+    return Promise.resolve();
   }
 
-  // eslint-disable-next-line @typescript-eslint/require-await
-  async ping(): Promise<string> {
-    return 'PONG';
+  ping(): Promise<string> {
+    return Promise.resolve('PONG');
   }
 
-  // eslint-disable-next-line @typescript-eslint/require-await
-  async info(key: string): Promise<string> {
+  info(key: string): Promise<string> {
     if (key === 'memory') {
-      return 'used_memory:123456\npeak_memory:123456\n';
+      return Promise.resolve('used_memory:123456\npeak_memory:123456\n');
     }
-    return '';
+    return Promise.resolve('');
   }
 
-  // eslint-disable-next-line @typescript-eslint/require-await
-  async cluster(command: string): Promise<string> {
+  cluster(command: string): Promise<string> {
     if (command === 'INFO') {
-      return 'cluster_state:ok\n';
+      return Promise.resolve('cluster_state:ok\n');
     }
-    return '';
+    return Promise.resolve('');
   }
 
-  async disconnect(): Promise<void> {
-    // do nothing
+  disconnect(): Promise<void> {
+    return Promise.resolve();
   }
 }
 
@@ -93,7 +86,6 @@ export type RedisClientT = Redis | Cluster | RedisMock | undefined;
 @Injectable()
 export class RedisService<T extends RedisClientT> implements OnModuleInit, OnModuleDestroy {
   private client: RedisClientT;
-  private retryStrategyErrorDetected = false;
   private redlock: Redlock;
 
   constructor(@Optional() @Inject(LoggerService) private readonly logger?: LoggerService) {}
@@ -120,23 +112,20 @@ export class RedisService<T extends RedisClientT> implements OnModuleInit, OnMod
     this.redlock = new Redlock([this.client], {
       // The expected clock drift; for more details see:
       // http://redis.io/topics/distlock
-      driftFactor: 0.01, // multiplied by lock ttl to determine drift time
+      driftFactor: 0.01,
 
       // The max number of times Redlock will attempt to lock a resource
-      // before erroring.
       retryCount: 18,
 
       // the time in ms between attempts
-      retryDelay: 500, // time in ms
+      retryDelay: 500,
 
       // the max time in ms randomly added to retries
-      // to improve performance under high contention
       // see https://www.awsarchitectureblog.com/2015/03/backoff.html
-      retryJitter: 200, // time in ms
+      retryJitter: 200,
 
-      // The minimum remaining time on a lock before an extension is automatically
-      // attempted with the `using` API.
-      automaticExtensionThreshold: 500, // time in ms
+      // The minimum remaining time on a lock before an extension is automatically attempted
+      automaticExtensionThreshold: 500,
     });
 
     this.client.on('error', (err) => {

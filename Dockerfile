@@ -35,6 +35,9 @@ COPY --chown=node:node --from=development /usr/src/app/node_modules ./node_modul
 COPY --chown=node:node . .
 
 ENV NODE_ENV=production
+# Junk db password so prisma generate works without a live database
+ENV DATABASE_URL="postgresql://user:password@localhost:5432/dbname"
+ENV NODE_OPTIONS=--max-old-space-size=4096
 
 RUN npm run build
 
@@ -61,6 +64,10 @@ COPY --from=build --chown=node:node /usr/src/app/generated ./generated
 # COPY --from=build --chown=node:node /usr/src/app/bootstrap.ts .
 
 RUN apk update && apk add --no-cache --upgrade bash perl postgresql-client
+
+# Give the node user write access to the workdir so tools can create
+# cache/profile directories at runtime.
+RUN chown node:node /usr/src/app
 
 RUN find . -name .env -delete
 

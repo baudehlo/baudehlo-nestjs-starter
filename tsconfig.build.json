@@ -1,10 +1,10 @@
 {
   "extends": "./tsconfig.json",
-  "exclude": [
-    "node_modules",
-    "test",
-    "dist",
-    "**/*spec.ts",
-    "infra"
-  ]
+  "compilerOptions": {
+    "rootDir": "./",
+    "allowJs": true,
+    "declaration": false
+  },
+  "include": ["src/**/*", "generated/**/*"],
+  "exclude": ["node_modules", "test", "dist", "**/*spec.ts", "infra", "./*.ts"]
 }

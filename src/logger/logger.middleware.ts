@@ -1,18 +1,13 @@
 import { ArgumentsHost, Catch, ExceptionFilter, ExecutionContext, HttpException, HttpStatus, Injectable } from '@nestjs/common';
 import { FastifyReply, FastifyRequest } from 'fastify';
 import { LoggerService } from './logger';
-import { HttpAdapterHost } from '@nestjs/core';
 
 @Injectable()
 @Catch(HttpException)
 export class LoggerMiddlewareOrGuard implements ExceptionFilter {
-  public constructor(
-    private readonly logger: LoggerService,
-    private readonly httpAdapterHost: HttpAdapterHost,
-  ) {}
+  public constructor(private readonly logger: LoggerService) {}
 
-  // eslint-disable-next-line @typescript-eslint/require-await
-  async canActivate(context: ExecutionContext): Promise<boolean> {
+  canActivate(context: ExecutionContext): boolean {
     const request = context.switchToHttp().getRequest<FastifyRequest>();
 
     const startTime = process.hrtime.bigint();
