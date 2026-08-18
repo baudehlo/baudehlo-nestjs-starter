@@ -61,7 +61,7 @@ class UntypedExtendedClient extends PrismaClient {
       logger ||= app?.get(LoggerService);
       logger?.debug(workingQuery);
     });
-    extendClient(this) as this;
+    return extendClient(this) as this;
   }
 }
 
