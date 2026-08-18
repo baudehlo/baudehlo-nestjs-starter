@@ -9,7 +9,7 @@ export class HealthController {
   @Get()
   @HealthCheck()
   @Version(VERSION_NEUTRAL)
-  async check(): Promise<HealthCheckResult> {
+  check(): Promise<HealthCheckResult> {
     return this.healthService.checkHealth();
   }
 }

@@ -53,7 +53,7 @@ export class PgBossService implements OnModuleInit, OnModuleDestroy, OnApplicati
   ) {
     this.batchSize = this.config.get<number>('PG_BOSS_BATCH_SIZE', 5);
     this.pollingInterval = this.config.get<number>('PG_BOSS_POLLING_INTERVAL', 2);
-    this.pgBossSchema = this.config.get<string>('PG_BOSS_SCHEMA', 'pgboss_planllama');
+    this.pgBossSchema = this.config.get<string>('PG_BOSS_SCHEMA', 'pgboss_starter');
   }
 
   async onModuleInit(): Promise<void> {
@@ -71,7 +71,7 @@ export class PgBossService implements OnModuleInit, OnModuleDestroy, OnApplicati
     this.boss = new PgBoss({
       connectionString: process.env.DATABASE_URL,
       schema: this.pgBossSchema,
-      application_name: this.config.get<string>('PG_BOSS_APP_NAME', 'planllama'),
+      application_name: this.config.get<string>('PG_BOSS_APP_NAME', 'nestjs-starter'),
       max: this.config.get<number>('PG_BOSS_MAX_CONNECTIONS', 20),
     });
     this.boss.on('error', (error) => this.logger.error(error));
@@ -88,11 +88,7 @@ export class PgBossService implements OnModuleInit, OnModuleDestroy, OnApplicati
     }
     this.logger.log(`Shutting down pg-boss`);
     this.boss.off('error', (error) => this.logger.error(error));
-    await this.boss.stop({
-      // destroy: true, // close DB connection
-      // graceful: false, // allow jobs to finish processing
-      wait: true,
-    });
+    await this.boss.stop();
   }
 
   async createQueue(queueName: string, options?: PgQueue): Promise<void> {
@@ -165,41 +161,36 @@ export class PgBossService implements OnModuleInit, OnModuleDestroy, OnApplicati
     const countParams: (string | number)[] = [...baseParams];
 
     if (states.length > 0) {
-      // Build placeholders for state filtering
       const statePlaceholders = states.map((_, index) => `$${index + 2}`).join(',');
       stateCondition = `AND state IN (${statePlaceholders})`;
-      // Add states to parameters
       queryParams.push(...states);
       countParams.push(...states);
     }
 
-    // Add limit and offset parameters (they come after states)
     const limitParamIndex = queryParams.length + 1;
     const offsetParamIndex = queryParams.length + 2;
     queryParams.push(limit, offset);
 
-    // Query jobs from pgboss.job table
     const jobs = await this.prisma.$queryRawUnsafe<JobWithMetadata[]>(
       `
-      SELECT id, name, data, state, priority, retry_count as "retryCount", 
+      SELECT id, name, data, state, priority, retry_count as "retryCount",
              retry_limit as "retryLimit", retry_delay as "retryDelay",
-             created_on as "createdOn", started_on as "startedOn", 
-             completed_on as "completedOn", output, 
-             keep_until as "keepUntil", singleton_key as "singletonKey", 
+             created_on as "createdOn", started_on as "startedOn",
+             completed_on as "completedOn", output,
+             keep_until as "keepUntil", singleton_key as "singletonKey",
              singleton_on as "singletonOn"
-      FROM ${this.pgBossSchema}.job 
+      FROM ${this.pgBossSchema}.job
       WHERE name = $1 ${stateCondition}
-      ORDER BY created_on DESC 
+      ORDER BY created_on DESC
       LIMIT $${limitParamIndex} OFFSET $${offsetParamIndex}
     `,
       ...queryParams,
     );
 
-    // Get total count for pagination
     const totalResult = await this.prisma.$queryRawUnsafe<Array<{ count: bigint }>>(
       `
       SELECT COUNT(*) as count
-      FROM ${this.pgBossSchema}.job 
+      FROM ${this.pgBossSchema}.job
       WHERE name = $1 ${stateCondition}
     `,
       ...countParams,
@@ -214,7 +205,6 @@ export class PgBossService implements OnModuleInit, OnModuleDestroy, OnApplicati
     try {
       return await this._publish(queue, payload, _options);
     } catch (e) {
-      // Magically handle if we didn't create the queue first.
       if (e instanceof PgBossServiceError) {
         await this.createQueue(queue);
         return await this._publish(queue, payload, _options);
@@ -230,7 +220,7 @@ export class PgBossService implements OnModuleInit, OnModuleDestroy, OnApplicati
 
     if (!(await this.boss.getQueue(queue))) {
       throw new PgBossServiceError(`Queue ${queue} not found`);
-    } // Ensure queue exists
+    }
 
     this.logger.debug(`Attempt to publish payload ${JSON.stringify(payload)} to ${queue} with options: ${JSON.stringify(options)}`);
     const jobId = await this.boss.send(queue, payload as object, options);
@@ -244,9 +234,20 @@ export class PgBossService implements OnModuleInit, OnModuleDestroy, OnApplicati
     if (!this.boss) {
       throw new Error(`Attempt to subscribe to ${queue} before application is bootstrapped`);
     }
-    this.logger.debug(`Subscribing to ${queue}`);
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const cb = async (job: PgJob<T>[]): Promise<any> => {
+    // Ensure the queue exists before subscribing; create it if not.
+    try {
+      const q = await this.getQueue(queue);
+      if (!q) {
+        throw new PgBossServiceError(`Queue ${queue} not found`);
+      }
+      this.logger.debug(`Subscribing to ${queue} which already exists`);
+    } catch (error) {
+      this.logger.error(`Error fetching queue ${queue}: ${JSON.stringify(error)}`);
+      Sentry.captureException(error);
+      await this.createQueue(queue);
+      this.logger.debug(`Subscribing to ${queue} after creating it`);
+    }
+    const cb = async (job: PgJob<T>[]): Promise<unknown> => {
       try {
         return await callback(job);
       } catch (error) {
@@ -255,14 +256,13 @@ export class PgBossService implements OnModuleInit, OnModuleDestroy, OnApplicati
         throw error;
       }
     };
-    return this.boss.work<T>(queue, { batchSize: this.batchSize, pollingIntervalSeconds: this.pollingInterval }, cb);
+    return await this.boss.work<T>(queue, { batchSize: this.batchSize, pollingIntervalSeconds: this.pollingInterval }, cb);
   }
 
   async schedule<T>(queue: string, cron: string, payload: T, options: PgScheduleOptions = {}): Promise<void> {
     try {
       return await this._schedule(queue, cron, payload, options);
     } catch (e) {
-      // Magically handle if we didn't create the queue first.
       if (e instanceof PgBossServiceError) {
         await this.createQueue(queue);
         return await this._schedule(queue, cron, payload, options);
@@ -344,6 +344,13 @@ export class PgBossService implements OnModuleInit, OnModuleDestroy, OnApplicati
     };
   }
 
+  async getJobById(name: string, id: string): Promise<JobWithMetadata | null> {
+    if (!this.boss) {
+      throw new Error(`Attempt to get job ${id} from queue ${name} before application is bootstrapped`);
+    }
+    return await this.boss.getJobById(name, id);
+  }
+
   async cancel(name: string, id: string): Promise<void> {
     if (!this.boss) {
       throw new Error(`Attempt to cancel task ${id} from queue ${name} before application is bootstrapped`);
@@ -352,8 +359,7 @@ export class PgBossService implements OnModuleInit, OnModuleDestroy, OnApplicati
     return;
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  async wait(name: string, id: string, maxWaitTime = MAX_QUEUE_WAIT): Promise<any> {
+  async wait(name: string, id: string, maxWaitTime = MAX_QUEUE_WAIT): Promise<unknown> {
     if (!this.boss) {
       throw new Error(`Attempt to wait for task ${id} before application is bootstrapped`);
     }
@@ -364,11 +370,8 @@ export class PgBossService implements OnModuleInit, OnModuleDestroy, OnApplicati
       if (job?.state === 'completed' || job?.state === 'cancelled') {
         return job.output;
       }
-      // Note retry is here because we only wait for jobs in tests.
       if (job?.state === 'failed' || job?.state === 'retry') {
         this.logger.error(`Job with id ${id} failed with state: ${job?.state} and output: ${JSON.stringify(job?.output)}`);
-
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-argument
         const err = new HttpException({ message: job.output['message'], statusCode: job.output['status'] }, job.output['status']);
         throw err;
       }
@@ -383,7 +386,6 @@ export class PgBossService implements OnModuleInit, OnModuleDestroy, OnApplicati
     if (!this.boss) {
       throw new Error(`Attempt to fail task ${id} from queue ${name} before application is bootstrapped`);
     }
-
     await this.boss.fail(name, id, error);
   }
 }

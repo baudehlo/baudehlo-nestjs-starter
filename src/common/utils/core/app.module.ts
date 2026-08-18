@@ -17,7 +17,7 @@ import { HealthController } from 'src/health/health.controller';
 import { HealthService } from 'src/health/health.service';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { LoggerService } from '../../../logger/logger';
-import { PgBossService } from '../../services/pg-boss.service';
+import { PgBossModule } from '../../services/pg-boss.module';
 import { Cluster, RedisHealthIndicator, RedisManagerService, RedisService } from '../../services/redis';
 import { AppService } from './app.service';
 import type { StringValue } from 'ms';
@@ -67,6 +67,7 @@ export async function createAppModuleForTest(controllers?: Type<unknown>[], pris
         inject: [ConfigService],
       }),
       LoggerModule,
+      PgBossModule,
       ClsModule.forRoot({
         global: true,
         middleware: {
@@ -86,7 +87,6 @@ export async function createAppModuleForTest(controllers?: Type<unknown>[], pris
         },
       }),
       SentryModule.forRoot(),
-      ConfigModule.forRoot(),
       HotShotsModule.forRoot({
         // StatsD
         host: process.env.STATSD_HOST || 'statsd.disco',
@@ -115,7 +115,6 @@ export async function createAppModuleForTest(controllers?: Type<unknown>[], pris
       { provide: RedisService, useValue: redisService },
       RedisHealthIndicator,
       RedisManagerService,
-      PgBossService,
     ],
   };
 }

@@ -1,5 +1,5 @@
 import { repl } from '@nestjs/core';
-import { createAppModule } from './app.module';
+import { createAppModule } from './common/utils/core/app.module';
 
 async function bootstrap(): Promise<void> {
   const appModule = await createAppModule();

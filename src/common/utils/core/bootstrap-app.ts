@@ -1,3 +1,6 @@
+import cluster, { Worker } from 'node:cluster';
+import { readFile } from 'node:fs/promises';
+import { cpus } from 'node:os';
 import fastifyCookie from '@fastify/cookie';
 import fastifySession from '@fastify/session';
 import { BadRequestException, VersioningType } from '@nestjs/common';
@@ -5,19 +8,16 @@ import { NestFactory } from '@nestjs/core';
 import { FastifyAdapter, NestFastifyApplication } from '@nestjs/platform-fastify';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import bytes from 'bytes';
-import fastify, { FastifyInstance, FastifyServerOptions } from 'fastify';
+import { FastifyServerOptions } from 'fastify';
 import RedisStore from 'fastify-session-redis-store';
 import helmet from 'helmet';
 import { StatsD } from 'hot-shots';
-import cluster, { Worker } from 'node:cluster';
-import { readFile } from 'node:fs/promises';
-import { cpus } from 'node:os';
 import { RedisIoAdapter } from 'src/common/adapters/redis-io.adapter';
 import { isProduction } from 'src/common/enums';
-import { LoggerService } from 'src/logger/logger';
 import { RedisService } from 'src/common/services/redis';
+import { LoggerService } from 'src/logger/logger';
+import { setAppRef } from './app-ref';
 import { createAppModule } from './app.module';
-import { SentryExceptionFilter } from 'src/common/filters/sentry.exception.filter';
 
 declare module 'fastify' {
   interface Session {
@@ -27,19 +27,19 @@ declare module 'fastify' {
   }
 }
 
-export let app: NestFastifyApplication;
-
 export async function bootstrap() {
   try {
     const { name, description, version } = JSON.parse(await readFile('package.json', 'utf-8')) as { version: string; name: string; description: string };
 
+    const payloadLimit = bytes.parse(process.env.PAYLOAD_LIMIT || '10mb') || undefined;
     const serverOptions: FastifyServerOptions = {
       trustProxy: true,
+      bodyLimit: payloadLimit,
     };
-    const instance: FastifyInstance = fastify(serverOptions);
 
     const appModule = await createAppModule();
-    app = await NestFactory.create<NestFastifyApplication>(appModule, new FastifyAdapter(instance));
+    const app = await NestFactory.create<NestFastifyApplication>(appModule, new FastifyAdapter(serverOptions), {});
+    setAppRef(app);
 
     app.setGlobalPrefix('api', {
       exclude: ['/health', '/ws', '/socket.io'],
@@ -60,8 +60,6 @@ export async function bootstrap() {
     const logger = await app.resolve(LoggerService);
     const metrics = await app.resolve(StatsD);
 
-    app.useGlobalFilters(new SentryExceptionFilter(logger));
-
     logger.log(`Starting application ${name} version ${version}`);
 
     const redisClient = await redisService.getClient();
@@ -78,28 +76,26 @@ export async function bootstrap() {
 
     await app.register(fastifyCookie);
     await app.register(fastifySession, {
-      secret: process.env.SESSION_SECRET, // Replace with a strong, random secret
+      secret: process.env.SESSION_SECRET,
       cookie: {
         secure: isProduction, // Use secure cookies in production
         maxAge: 86400000, // Session expiration in milliseconds (e.g., 24 hours)
       },
       store: redisStore,
       prefix: 'session:', // Optional: prefix for session keys in Redis
-      rolling: false, // recommended: do not roll session on every request
+      rolling: true, // reset session expiry on every request to prevent unexpected logouts
       saveUninitialized: false, // recommended: only save session when data exists
     });
 
     app.enableCors({
       origin: process.env.CORS_ORIGIN || '*',
+      methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS',
       credentials: true,
     });
 
     app.use(helmet());
 
     app.enableShutdownHooks();
-
-    const payloadLimit = bytes.parse(process.env.PAYLOAD_LIMIT || '10mb') || undefined;
-    app.useBodyParser('json', { bodyLimit: payloadLimit });
 
     const swaggerConfig = new DocumentBuilder().setTitle(`API for ${name}`).setDescription(description).setVersion(version).addBearerAuth().build();
     const document = SwaggerModule.createDocument(app, swaggerConfig);
@@ -136,7 +132,7 @@ export async function bootstrap() {
 
       cluster.on(`exit`, clusterExitHandler);
     } else if (cluster.isWorker) {
-      const server = await app.listen(process.env.PORT ?? 3000);
+      const server = await app.listen(process.env.PORT ?? 3000, '0.0.0.0');
       // These need to be set due to weird behaviour of AWS ALB.
       // See: https://shuheikagawa.com/blog/2019/04/25/keep-alive-timeout/
       server.keepAliveTimeout = 61 * 1000;

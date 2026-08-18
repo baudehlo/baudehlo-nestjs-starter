@@ -4,7 +4,7 @@
  * @param ms - The timeout in milliseconds
  * @param promise - The promise which should get executed
  */
-export const promiseTimeout = async (ms: number, promise: Promise<unknown>): Promise<unknown> => {
+export const promiseTimeout = (ms: number, promise: Promise<unknown>): Promise<unknown> => {
   let timer: NodeJS.Timeout;
 
   return Promise.race([

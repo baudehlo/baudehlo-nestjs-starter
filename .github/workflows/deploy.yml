@@ -1,0 +1,69 @@
+name: API Deploy
+
+on:
+  workflow_run:
+    workflows: ["Lint, Test, and Setup Services"]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: Deployment environment
+        required: true
+        default: Dev
+        type: choice
+        options:
+          - Dev
+          - Staging
+          - Prod
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  deploy:
+    name: Deploy API
+    runs-on: ubuntu-latest
+    if: >
+      (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success') ||
+      github.event_name == 'workflow_dispatch'
+    environment: ${{ github.event_name == 'workflow_dispatch' && inputs.environment || 'Dev' }}
+    concurrency:
+      group: api-deploy-${{ github.event_name == 'workflow_dispatch' && inputs.environment || 'Dev' }}
+      cancel-in-progress: false
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - name: Resolve deploy environment
+        id: env
+        shell: bash
+        run: |
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            echo "name=${{ inputs.environment }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "name=Prod" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.DEPLOY_AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.DEPLOY_AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: Install infra dependencies
+        working-directory: infra
+        run: npm ci
+
+      - name: Deploy infrastructure
+        working-directory: infra
+        run: |
+          npm run cdk -- deploy --all --require-approval never -c ENVIRONMENT=${{ steps.env.outputs.name }}

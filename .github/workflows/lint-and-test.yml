@@ -2,9 +2,33 @@ name: Lint, Test, and Setup Services
 
 on:
   push:
-    branches:
-      - main
+    branches: [main]
+    paths:
+      - "src/**"
+      - "prisma/**"
+      - "test/**"
+      - "infra/**"
+      - "package.json"
+      - "package-lock.json"
+      - "tsconfig.json"
+      - "tsconfig.build.json"
+      - "vitest*.mts"
+      - "biome.json"
+      - ".github/workflows/lint-and-test.yml"
   pull_request:
+    branches: [main]
+    paths:
+      - "src/**"
+      - "prisma/**"
+      - "test/**"
+      - "infra/**"
+      - "package.json"
+      - "package-lock.json"
+      - "tsconfig.json"
+      - "tsconfig.build.json"
+      - "vitest*.mts"
+      - "biome.json"
+      - ".github/workflows/lint-and-test.yml"
 
 jobs:
   lint-and-test:
@@ -37,15 +61,15 @@ jobs:
 
     steps:
     - name: Checkout code
-      uses: actions/checkout@v3
+      uses: actions/checkout@v4
 
     - name: Set up Node.js
-      uses: actions/setup-node@v3
+      uses: actions/setup-node@v4
       with:
         node-version: 24
 
     - name: Install dependencies
-      run: npm install
+      run: npm ci
 
     - name: Install Redis CLI
       run: |
@@ -66,9 +90,14 @@ jobs:
     - name: Run lint
       run: npm run lint
 
-    - name: Run tests
+    - name: Run tests with coverage
       env:
         DATABASE_URL: postgres://postgres:postgres@localhost:5432/testdb
         REDIS_URL: redis://localhost:6379
-        SESSION_SECRET: Matt is Jobber's biggest fan and he will die on that hill
-      run: npm test
+        SESSION_SECRET: replaceme-with-a-long-random-secret
+        DISK_THRESHOLD_PERCENT: 0.9
+      run: |
+        npm run db:generate
+        npm run db:migrate
+        npm run db:seed
+        npm run test:cov
