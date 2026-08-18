@@ -38,6 +38,18 @@ const MAX_QUEUE_WAIT = parseInt(process.env.MAX_QUEUE_WAIT || '25000', 10);
 
 class PgBossServiceError extends Error {}
 
+function formatErrorForLog(error: unknown): string {
+  if (error instanceof Error) {
+    return error.stack ?? error.message;
+  }
+
+  try {
+    return JSON.stringify(error);
+  } catch {
+    return String(error);
+  }
+}
+
 @Injectable()
 export class PgBossService implements OnModuleInit, OnModuleDestroy, OnApplicationShutdown {
   public boss: PgBoss;
@@ -242,7 +254,7 @@ export class PgBossService implements OnModuleInit, OnModuleDestroy, OnApplicati
       }
       this.logger.debug(`Subscribing to ${queue} which already exists`);
     } catch (error) {
-      this.logger.error(`Error fetching queue ${queue}: ${JSON.stringify(error)}`);
+      this.logger.error(`Error fetching queue ${queue}: ${formatErrorForLog(error)}`);
       Sentry.captureException(error);
       await this.createQueue(queue);
       this.logger.debug(`Subscribing to ${queue} after creating it`);
@@ -251,7 +263,7 @@ export class PgBossService implements OnModuleInit, OnModuleDestroy, OnApplicati
       try {
         return await callback(job);
       } catch (error) {
-        this.logger.error(`Error in job ${JSON.stringify(job)}: ${JSON.stringify(error)}`);
+        this.logger.error(`Error in job ${JSON.stringify(job)}: ${formatErrorForLog(error)}`);
         Sentry.captureException(error);
         throw error;
       }
